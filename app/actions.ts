@@ -16,7 +16,7 @@ import {
   rollbackToVersion,
   type EntityType,
 } from "@/lib/content";
-import { addComment } from "@/lib/comments";
+import { addComment, deleteComment } from "@/lib/comments";
 import { togglePostLike, toggleCommentLike } from "@/lib/likes";
 import { slugify } from "@/lib/slug";
 
@@ -198,7 +198,22 @@ export async function addCommentAction(
 
   await addComment(slug, { username, message });
   revalidatePath(`/blog/${slug}`);
+  revalidatePath("/admin");
   return {};
+}
+
+/** Admin moderation: delete a single comment. */
+export async function deleteCommentAction(
+  slug: string,
+  commentId: string,
+  createdAt: string,
+): Promise<void> {
+  await assertAdmin();
+  await deleteComment(slug, `${createdAt}#${commentId}`);
+  revalidatePath(`/blog/${slug}`);
+  revalidatePath("/admin");
+  revalidatePath("/blog");
+  revalidatePath("/");
 }
 
 // --- likes (public, anonymous) ---------------------------------------------

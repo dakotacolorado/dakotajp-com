@@ -8,7 +8,9 @@ change.
 - **Table:** `dakotajp-site` (`TABLE_NAME` in `lib/dynamo.ts`, created by
   `infra/lib/dakotajp-site-stack.ts` with `RemovalPolicy.RETAIN`)
 - **Region / account:** `us-east-1` / `326571719118`
-- **Keys:** `pk` (partition, string), `sk` (sort, string). No GSIs.
+- **Keys:** `pk` (partition, string), `sk` (sort, string).
+- **Index:** one GSI, `GSI1` (`GSI1PK` / `GSI1SK`), used only for the
+  cross-post comment feed — see below.
 - **Read cost:** pay-per-request. A full scan of this table is a handful of
   RCUs — safe to run against prod.
 
@@ -42,6 +44,23 @@ counters — a like is **not** an edit, so it never goes through `commitVersion`
 mid-save can't be clobbered. Comment items carry their own `likes` attribute.
 `LIKE#<readerId>` items dedupe one like per anonymous reader (a signed cookie ID)
 per target; they're deliberately orphaned when a post is deleted (tiny, harmless).
+
+**Cross-post comment feed (`GSI1`).** Comments are partitioned per post, so the
+admin dashboard reads them by recency through a GSI instead: every comment also
+carries `GSI1PK = "COMMENT"` and `GSI1SK = <ISO timestamp>`. That gives "newest
+across all posts" and "since T" as one query (`lib/comments.ts` →
+`listRecentComments` / `countCommentsSince`). A single hot partition is the
+accepted trade at this volume. Comments written before the index existed lack
+these keys and are invisible to it until backfilled with
+`scripts/backfill-comment-gsi.mjs`. Query the feed directly with:
+
+```bash
+aws dynamodb query --table-name dakotajp-site --region us-east-1 \
+  --index-name GSI1 --no-scan-index-forward --max-items 10 \
+  --key-condition-expression 'GSI1PK = :p' \
+  --expression-attribute-values '{":p":{"S":"COMMENT"}}' \
+  --output json | jq -r '.Items[] | "\(.GSI1SK.S)\t\(.pk.S)\t\(.username.S)"'
+```
 
 The `PAGE` / `POST` / `POSTBODY` items are always the *current* version; the
 `VERSION#…` items are immutable snapshots of every save. One save writes all of
