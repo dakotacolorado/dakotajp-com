@@ -12,7 +12,7 @@ export default async function BlogPage() {
   return (
     <section>
       <div className="mb-6 flex items-baseline justify-between gap-4">
-        <h1 className="font-serif text-3xl tracking-tight">Writing</h1>
+        <h1 className="font-serif text-3xl tracking-tight">Blog</h1>
         <EditLink href="/admin/blog" />
       </div>
 

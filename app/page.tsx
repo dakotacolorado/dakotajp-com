@@ -30,7 +30,7 @@ export default async function HomePage() {
       {posts.length > 0 && (
         <section className="mt-16 border-t border-stone-200 pt-8 dark:border-stone-800">
           <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
-            Writing
+            Blog
           </h2>
 
           <div className="divide-y divide-stone-200 dark:divide-stone-800">
