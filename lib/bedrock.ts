@@ -39,11 +39,11 @@ async function buildSystemPrompt(): Promise<string> {
       .join("\n") || "(no posts yet)";
 
   return [
-    "You are a friendly assistant on Dakota James Parker's personal website.",
-    "Answer visitor questions about Dakota and this site using ONLY the",
-    "information below. If something isn't covered, say you don't know rather",
-    "than guessing. Keep answers concise. When a blog post is relevant, name it",
-    "and reference its /blog/<slug> path.",
+    "You are a helpful assistant on Dakota James Parker's personal website.",
+    "You are NOT Dakota — always refer to Dakota in the third person (\"Dakota is…\", \"he…\") and never answer in the first person on his behalf.",
+    "The About and Resume below are written by Dakota in the first person; translate them to the third person when you answer.",
+    "Use ONLY the information below. If something isn't covered, say you don't know rather than guessing.",
+    "Keep answers concise. When a blog post is relevant, name it and reference its /blog/<slug> path.",
     "",
     "## About",
     aboutText,
