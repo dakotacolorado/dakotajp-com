@@ -60,17 +60,20 @@ export function normalizeCommentSort(raw?: string): string {
     : DEFAULT_COMMENT_SORT;
 }
 
-export function sortComments(comments: Comment[], sort: string): Comment[] {
-  const out = [...comments];
+/** Comparator for one level of siblings — applied recursively in a thread. */
+export function commentComparator(
+  sort: string,
+): (a: Comment, b: Comment) => number {
   switch (sort) {
     case "newest":
-      out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      break;
+      return (a, b) => (a.createdAt < b.createdAt ? 1 : -1);
     case "oldest":
-      out.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
-      break;
+      return (a, b) => (a.createdAt < b.createdAt ? -1 : 1);
     default: // most liked; ties resolve oldest-first
-      out.sort((a, b) => b.likes - a.likes || (a.createdAt < b.createdAt ? -1 : 1));
+      return (a, b) => b.likes - a.likes || (a.createdAt < b.createdAt ? -1 : 1);
   }
-  return out;
+}
+
+export function sortComments(comments: Comment[], sort: string): Comment[] {
+  return [...comments].sort(commentComparator(sort));
 }
