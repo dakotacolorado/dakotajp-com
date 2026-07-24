@@ -16,8 +16,8 @@ const WWW_DOMAIN = `www.${DOMAIN_NAME}`;
 const TABLE_NAME = "dakotajp-site";
 
 // Bedrock model for chat + summaries. Cross-region inference profile for
-// Claude Haiku; overridable via the Lambda env without a code change.
-const BEDROCK_MODEL_ID = "us.anthropic.claude-3-5-haiku-20241022-v1:0";
+// Claude Haiku 4.5; overridable via the Lambda env without a code change.
+const BEDROCK_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 // Permission to invoke Claude on Bedrock (streaming + non-streaming), covering
 // the inference profile and the underlying foundation models it routes to.
