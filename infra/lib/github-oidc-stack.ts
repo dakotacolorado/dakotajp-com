@@ -29,13 +29,17 @@ export class GithubOidcStack extends cdk.Stack {
       roleName: "github-actions-dakotajp-deploy",
       description: "Assumed by GitHub Actions (main branch) to run cdk deploy",
       maxSessionDuration: cdk.Duration.hours(1),
+      // IAM requires GitHub OIDC roles to be scoped by `sub` (or
+      // job_workflow_ref). This account emits `sub` with numeric database IDs
+      // appended (e.g. repo:owner@123/repo@456:ref:...), so we match with
+      // StringLike and wildcard only the IDs — the owner/repo names and the
+      // main-branch ref stay pinned.
       assumedBy: new iam.OpenIdConnectPrincipal(provider, {
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
         },
         StringLike: {
-          // Only the main branch of this exact repo can assume the role.
-          "token.actions.githubusercontent.com:sub": `repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main`,
+          "token.actions.githubusercontent.com:sub": `repo:${GITHUB_OWNER}@*/${GITHUB_REPO}@*:ref:refs/heads/main`,
         },
       }),
     });
