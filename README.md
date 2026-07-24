@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# dakotajp.com
 
-## Getting Started
+Personal site + small markdown CMS. Next.js (App Router) on AWS — Lambda +
+CloudFront + S3 via OpenNext, DynamoDB for content, deployed with AWS CDK.
 
-First, run the development server:
+> Built on Next.js 16 — some APIs and conventions differ from earlier versions.
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Uses AWS credentials for the `us-east-1` account (default profile) to read the
+`dakotajp-site` table.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build & check
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Before committing, make sure the app builds and lints:
 
-## Learn More
+```bash
+npm run build
+npm run lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Commit & deploy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Standard git. **Pushing to `main` deploys automatically:**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+git add <files>            # stage the files you changed
+git commit -m "message"
+git push origin main
+```
 
-## Deploy on Vercel
+GitHub Actions then builds and runs `cdk deploy` (auth via OIDC, no stored
+keys). Pull requests into `main` run build + `cdk synth` only — no deploy.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Deploy manually instead:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+cd infra && npx cdk deploy DakotajpSiteStack
+```
+
+## Admin
+
+The site has a single admin. Set the password (stored hashed in SSM):
+
+```bash
+npm run set-admin-password
+```
+
+Then sign in at `/admin`.
+
+## Layout
+
+```
+app/         pages, admin, and server actions
+components/   UI components
+lib/          server-only data + auth modules
+infra/        AWS CDK app
+docs/         runbooks
+```
