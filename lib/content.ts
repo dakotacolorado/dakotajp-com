@@ -11,6 +11,7 @@ import {
 import { ddb, TABLE_NAME } from "./dynamo";
 import { excerpt } from "./excerpt";
 import { deleteComments } from "./comments";
+import { enqueueSummary } from "./summary-queue";
 
 /**
  * Content model, single-table DynamoDB, with version history.
@@ -368,6 +369,7 @@ export async function createPost(
     },
     { splitBody: true },
   );
+  await enqueueSummary(input.slug);
   return (await getPost(input.slug))!;
 }
 
@@ -390,6 +392,7 @@ export async function updatePost(
     },
     { splitBody: true },
   );
+  await enqueueSummary(slug);
   return getPost(slug);
 }
 

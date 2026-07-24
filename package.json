@@ -10,7 +10,9 @@
     "set-admin-password": "node scripts/set-admin-password.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1094.0",
     "@aws-sdk/client-dynamodb": "^3.1094.0",
+    "@aws-sdk/client-sqs": "^3.1094.0",
     "@aws-sdk/client-ssm": "^3.1094.0",
     "@aws-sdk/lib-dynamodb": "^3.1094.0",
     "jose": "^6.2.4",
