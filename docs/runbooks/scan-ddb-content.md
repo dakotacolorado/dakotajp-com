@@ -45,6 +45,14 @@ mid-save can't be clobbered. Comment items carry their own `likes` attribute.
 `LIKE#<readerId>` items dedupe one like per anonymous reader (a signed cookie ID)
 per target; they're deliberately orphaned when a post is deleted (tiny, harmless).
 
+**Threaded comments.** A comment may carry `parentId` (the parent comment's
+`id`); absent means top-level. The thread is one query (`listComments`) and the
+tree is built in memory by `parentId` — no key change, no depth ceiling.
+Deleting a comment that has replies **tombstones** it (`deleted = true`, author
+and message blanked to `[deleted]`, `GSI1PK`/`GSI1SK` removed so it leaves the
+moderation feed) rather than hard-deleting, so replies keep their parent; a leaf
+is hard-deleted.
+
 **Cross-post comment feed (`GSI1`).** Comments are partitioned per post, so the
 admin dashboard reads them by recency through a GSI instead: every comment also
 carries `GSI1PK = "COMMENT"` and `GSI1SK = <ISO timestamp>`. That gives "newest

@@ -9,13 +9,13 @@ import {
   COMMENT_SORT_OPTIONS,
   DEFAULT_COMMENT_SORT,
   normalizeCommentSort,
-  sortComments,
 } from "@/lib/sorting";
+import { buildThread } from "@/lib/comment-tree";
 import { Markdown } from "@/components/Markdown";
 import { EditLink } from "@/components/EditLink";
 import { CommentForm } from "@/components/CommentForm";
 import { LikeButton } from "@/components/LikeButton";
-import { DeleteCommentButton } from "@/components/DeleteCommentButton";
+import { CommentThread } from "@/components/CommentThread";
 import { SortControl } from "@/components/SortControl";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,9 @@ export default async function PostPage({
     listComments(slug),
   ]);
   const sort = normalizeCommentSort(rawSort);
-  const sortedComments = sortComments(comments, sort);
+  const thread = buildThread(comments, sort);
+  // Tombstones stay in the tree as nodes but don't count as "real" comments.
+  const visibleCount = comments.filter((c) => !c.deleted).length;
 
   return (
     <article>
@@ -95,9 +97,9 @@ export default async function PostPage({
       <section className="mt-12">
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
           <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
-            Comments {comments.length > 0 && `(${comments.length})`}
+            Comments {visibleCount > 0 && `(${visibleCount})`}
           </h2>
-          {comments.length > 1 && (
+          {visibleCount > 1 && (
             <SortControl
               basePath={`/blog/${slug}`}
               current={sort}
@@ -107,42 +109,18 @@ export default async function PostPage({
           )}
         </div>
 
-        <div className="mb-8 flex flex-col gap-5">
-          {sortedComments.length === 0 ? (
+        <div className="mb-8">
+          {thread.length === 0 ? (
             <p className="text-sm text-stone-500">
               No comments yet. Be the first.
             </p>
           ) : (
-            sortedComments.map((c) => (
-              <div key={c.id}>
-                <div className="mb-1 flex items-baseline gap-2">
-                  <span className="text-sm font-medium">{c.username}</span>
-                  <span className="text-xs text-stone-500">
-                    {formatDate(c.createdAt)}
-                  </span>
-                </div>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700 dark:text-stone-300">
-                  {c.message}
-                </p>
-                <div className="mt-1.5 flex items-center gap-4">
-                  <LikeButton
-                    kind="comment"
-                    slug={slug}
-                    commentId={c.id}
-                    createdAt={c.createdAt}
-                    initialLikes={c.likes}
-                    initiallyLiked={readerLikes.has(`c#${c.id}`)}
-                  />
-                  {admin && (
-                    <DeleteCommentButton
-                      slug={slug}
-                      commentId={c.id}
-                      createdAt={c.createdAt}
-                    />
-                  )}
-                </div>
-              </div>
-            ))
+            <CommentThread
+              nodes={thread}
+              slug={slug}
+              admin={admin}
+              readerLikes={readerLikes}
+            />
           )}
         </div>
 

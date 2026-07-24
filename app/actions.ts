@@ -189,6 +189,7 @@ export async function addCommentAction(
   const slug = String(formData.get("slug") ?? "");
   const username = String(formData.get("username") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
+  const parentId = String(formData.get("parentId") ?? "").trim() || undefined;
 
   if (!slug) return { error: "Missing post." };
   if (!username) return { error: "Please enter a name." };
@@ -196,7 +197,7 @@ export async function addCommentAction(
   if (username.length > 80) return { error: "Name is too long." };
   if (message.length > 1000) return { error: "Comment is too long." };
 
-  await addComment(slug, { username, message });
+  await addComment(slug, { username, message, parentId });
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/admin");
   return {};
@@ -209,7 +210,7 @@ export async function deleteCommentAction(
   createdAt: string,
 ): Promise<void> {
   await assertAdmin();
-  await deleteComment(slug, `${createdAt}#${commentId}`);
+  await deleteComment(slug, commentId, `${createdAt}#${commentId}`);
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/admin");
   revalidatePath("/blog");
