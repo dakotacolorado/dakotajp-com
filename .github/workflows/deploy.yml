@@ -31,11 +31,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install app dependencies
-        run: npm ci
-
-      - name: Install infra dependencies
-        working-directory: infra
+      - name: Install (workspaces)
         run: npm ci
 
       - name: Configure AWS credentials (OIDC)
@@ -45,5 +41,5 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: CDK deploy
-        working-directory: infra
+        working-directory: packages/cdk
         run: npx cdk deploy DakotajpSiteStack --require-approval never

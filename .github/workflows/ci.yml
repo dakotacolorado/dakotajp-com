@@ -20,7 +20,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install app dependencies
+      - name: Install (workspaces)
         run: npm ci
 
       - name: Lint
@@ -29,13 +29,9 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build Next.js
+      - name: Build web
         run: npm run build
 
-      - name: Install infra dependencies
-        working-directory: infra
-        run: npm ci
-
       - name: CDK synth
-        working-directory: infra
+        working-directory: packages/cdk
         run: npx cdk synth DakotajpSiteStack --quiet

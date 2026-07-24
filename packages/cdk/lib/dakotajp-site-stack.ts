@@ -116,7 +116,7 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // --- Next.js site: OpenNext build -> Lambda + CloudFront + S3 ---
     const site = new Nextjs(this, "Site", {
-      nextjsPath: path.resolve(__dirname, "..", ".."), // repo root (the Next.js app)
+      nextjsPath: path.resolve(__dirname, "..", "..", "web"), // packages/web (the Next.js app)
       environment: {
         TABLE_NAME: table.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,
