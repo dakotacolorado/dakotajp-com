@@ -6,14 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "set-admin-password": "node scripts/set-admin-password.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1094.0",
+    "@aws-sdk/client-ssm": "^3.1094.0",
     "@aws-sdk/lib-dynamodb": "^3.1094.0",
+    "jose": "^6.2.4",
     "next": "16.2.11",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

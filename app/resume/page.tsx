@@ -5,14 +5,14 @@ import { EditLink } from "@/components/EditLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function AboutPage() {
-  const page = (await getPage("about")) ?? SEED_PAGES.about;
+export default async function ResumePage() {
+  const page = (await getPage("resume")) ?? SEED_PAGES.resume;
 
   return (
     <article>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{page.title}</h1>
-        <EditLink href="/admin/pages/about" />
+        <EditLink href="/admin/pages/resume" />
       </div>
       <Markdown>{page.body}</Markdown>
     </article>

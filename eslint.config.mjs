@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Infra is its own project; don't lint CDK app or its build artifacts.
+    "infra/**",
+    ".open-next/**",
   ]),
 ]);
 

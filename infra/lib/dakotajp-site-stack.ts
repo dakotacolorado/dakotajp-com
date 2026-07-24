@@ -4,6 +4,7 @@ import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as iam from "aws-cdk-lib/aws-iam";
 import { Nextjs } from "cdk-nextjs-standalone";
 
 const DOMAIN_NAME = "dakotajp.com";
@@ -61,6 +62,32 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // Least-privilege: the server Lambda may read/write only this table.
     table.grantReadWriteData(site.serverFunction.lambdaFunction);
+
+    // Allow the server Lambda to read the admin auth secrets from SSM
+    // (password hash + session signing secret), created out-of-band by the
+    // `set-admin-password` script. Scoped to the /dakotajp/ path only.
+    site.serverFunction.lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: "ReadAdminSecrets",
+        actions: ["ssm:GetParameter"],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/dakotajp/*`,
+        ],
+      }),
+    );
+    // Decrypt permission for the SecureString values, scoped to SSM only.
+    site.serverFunction.lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: "DecryptSsmSecureStrings",
+        actions: ["kms:Decrypt"],
+        resources: ["*"],
+        conditions: {
+          StringEquals: {
+            "kms:ViaService": `ssm.${this.region}.amazonaws.com`,
+          },
+        },
+      }),
+    );
 
     // --- Outputs ---
     new cdk.CfnOutput(this, "SiteUrl", { value: `https://${DOMAIN_NAME}` });
