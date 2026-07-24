@@ -10,8 +10,8 @@ export default async function ResumePage() {
 
   return (
     <article>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">{page.title}</h1>
+      <div className="mb-5 flex items-baseline justify-between gap-4">
+        <h1 className="font-serif text-3xl tracking-tight">{page.title}</h1>
         <EditLink href="/admin/pages/resume" />
       </div>
       <Markdown>{page.body}</Markdown>

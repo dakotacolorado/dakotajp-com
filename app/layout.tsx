@@ -38,10 +38,7 @@ const NAV = [
   { href: "/blog", label: "blog" },
   { href: "/resume", label: "resume" },
   { href: "/chat", label: "ask ai" },
-  { href: SITE.repo, label: "source", external: true },
 ];
-
-const NAV_LINK_CLASS = "transition-colors hover:text-stone-900 dark:hover:text-stone-100";
 
 export default function RootLayout({
   children,
@@ -65,30 +62,15 @@ export default function RootLayout({
               {SITE.wordmark}
             </Link>
             <div className="flex gap-5 text-sm text-stone-500 dark:text-stone-400">
-              {NAV.map((item) =>
-                // next/link is for in-app navigation; an off-site link is a
-                // plain anchor, opened in a new tab so it doesn't drop the
-                // reader out of whatever they were reading.
-                item.external ? (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={NAV_LINK_CLASS}
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={NAV_LINK_CLASS}
-                  >
-                    {item.label}
-                  </Link>
-                ),
-              )}
+              {NAV.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="transition-colors hover:text-stone-900 dark:hover:text-stone-100"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </nav>
         </header>
@@ -98,11 +80,23 @@ export default function RootLayout({
         </main>
 
         <footer className="border-t border-stone-200 dark:border-stone-800">
-          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 px-6 py-6 text-xs text-stone-500">
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-xs text-stone-500">
             <span>
               © {new Date().getFullYear()} {SITE.name}
             </span>
-            <span className="font-mono tracking-tight">{SITE.domain}</span>
+            <div className="flex items-center gap-x-6">
+              {/* Off-site, so a plain anchor rather than next/link. Underlined
+                  in a muted tone, matching how links read in body copy. */}
+              <a
+                href={SITE.repo}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-stone-300 underline-offset-4 transition-colors hover:text-stone-900 hover:decoration-stone-500 dark:decoration-stone-700 dark:hover:text-stone-100 dark:hover:decoration-stone-500"
+              >
+                how this site is built
+              </a>
+              <span className="font-mono tracking-tight">{SITE.domain}</span>
+            </div>
           </div>
         </footer>
       </body>
