@@ -17,12 +17,32 @@ Uses AWS credentials for the `us-east-1` account (default profile) to read the
 
 ## Build & check
 
-Before committing, make sure the app builds and lints:
+Before committing, make sure the app builds, lints, and tests pass:
 
 ```bash
 npm run build
 npm run lint
+npm test
 ```
+
+## Tests
+
+Unit tests run on [Jest](https://jestjs.io) and execute on every PR (CI).
+
+```bash
+npm test              # run everything
+npm test -- slug      # filter by name
+```
+
+Two Jest projects run together (`jest.config.mjs`):
+
+- **pure** — non-Next code via `ts-jest`. Tests live next to their source as
+  `*.test.ts` (e.g. `lib/excerpt.test.ts`).
+- **web** — app / client components via `next/jest` (jsdom + React Testing
+  Library), as `*.test.tsx` under `app/` or `components/`.
+
+Jest can't test async Server Components, so rendered pages are verified by
+deploy + manual smoke, not unit tests.
 
 ## Commit & deploy
 
