@@ -105,7 +105,6 @@ export class DakotajpSiteStack extends cdk.Stack {
     // --- Next.js site: OpenNext build -> Lambda + CloudFront + S3 ---
     const site = new Nextjs(this, "Site", {
       nextjsPath: path.resolve(__dirname, "..", ".."), // repo root (the Next.js app)
-      streaming: true, // token-by-token streaming for the AI chat
       environment: {
         TABLE_NAME: table.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,
