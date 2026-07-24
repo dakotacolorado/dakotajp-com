@@ -3,6 +3,7 @@ import { isAdmin } from "@/lib/auth";
 import { getPage } from "@/lib/content";
 import { SEED_PAGES } from "@/lib/seed";
 import { PageEditor } from "@/components/PageEditor";
+import { VersionHistory } from "@/components/VersionHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function EditPage({
         body={content.body}
         cancelHref={cancelHref}
       />
+      <VersionHistory type="PAGE" id={key} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { getPost } from "@/lib/content";
 import { PostForm } from "@/components/PostForm";
+import { VersionHistory } from "@/components/VersionHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function EditPost({
         body={post.body}
         published={post.published}
       />
+      <VersionHistory type="POST" id={post.slug} />
     </div>
   );
 }

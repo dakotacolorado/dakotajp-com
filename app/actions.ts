@@ -8,7 +8,14 @@ import {
   destroySession,
   isAdmin,
 } from "@/lib/auth";
-import { savePage, createPost, updatePost, deletePost } from "@/lib/content";
+import {
+  savePage,
+  createPost,
+  updatePost,
+  deletePost,
+  rollbackToVersion,
+  type EntityType,
+} from "@/lib/content";
 import { addComment } from "@/lib/comments";
 import { slugify } from "@/lib/slug";
 
@@ -108,6 +115,27 @@ export async function deletePostAction(formData: FormData): Promise<void> {
     revalidatePath("/blog");
   }
   redirect("/admin/blog");
+}
+
+// --- versioning (rollback, admin only) -------------------------------------
+
+export async function rollbackAction(formData: FormData): Promise<void> {
+  await assertAdmin();
+  const type = String(formData.get("type") ?? "") as EntityType;
+  const id = String(formData.get("id") ?? "");
+  const version = Number(formData.get("version") ?? 0);
+  if ((type !== "PAGE" && type !== "POST") || !id || !version) return;
+
+  await rollbackToVersion(type, id, version);
+
+  if (type === "PAGE") {
+    revalidatePath(id === "about" ? "/" : `/${id}`);
+    redirect(`/admin/pages/${id}`);
+  } else {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${id}`);
+    redirect(`/admin/blog/${id}/edit`);
+  }
 }
 
 // --- comments (public, no login) -------------------------------------------
