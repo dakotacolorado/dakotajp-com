@@ -38,7 +38,10 @@ const NAV = [
   { href: "/blog", label: "blog" },
   { href: "/resume", label: "resume" },
   { href: "/chat", label: "ask ai" },
+  { href: SITE.repo, label: "source", external: true },
 ];
+
+const NAV_LINK_CLASS = "transition-colors hover:text-stone-900 dark:hover:text-stone-100";
 
 export default function RootLayout({
   children,
@@ -62,15 +65,30 @@ export default function RootLayout({
               {SITE.wordmark}
             </Link>
             <div className="flex gap-5 text-sm text-stone-500 dark:text-stone-400">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="transition-colors hover:text-stone-900 dark:hover:text-stone-100"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {NAV.map((item) =>
+                // next/link is for in-app navigation; an off-site link is a
+                // plain anchor, opened in a new tab so it doesn't drop the
+                // reader out of whatever they were reading.
+                item.external ? (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={NAV_LINK_CLASS}
+                  >
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={NAV_LINK_CLASS}
+                  >
+                    {item.label}
+                  </Link>
+                ),
+              )}
             </div>
           </nav>
         </header>
