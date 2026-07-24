@@ -1,0 +1,49 @@
+name: Deploy
+
+# Deploys the site on every push to main (and on manual dispatch).
+# Auth is via GitHub OIDC — a short-lived role assumption, no stored AWS keys.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Prevent overlapping deploys from racing each other.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # required to request the OIDC token
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_DEPLOY_ROLE: arn:aws:iam::326571719118:role/github-actions-dakotajp-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install infra dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK deploy
+        working-directory: infra
+        run: npx cdk deploy DakotajpSiteStack --require-approval never
