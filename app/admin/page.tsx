@@ -2,17 +2,41 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { listPosts } from "@/lib/content";
+import { getAllPostStats } from "@/lib/likes";
+import { listRecentComments, countCommentsSince } from "@/lib/comments";
+import { formatDate } from "@/lib/date";
 import { logoutAction } from "@/app/actions";
+import { DeleteCommentButton } from "@/components/DeleteCommentButton";
 
 export const dynamic = "force-dynamic";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Kept out of the component body so the render stays pure (react-hooks/purity).
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * DAY_MS).toISOString();
+}
 
 export default async function AdminDashboard() {
   const session = await getSession();
   if (!session) redirect("/admin/login");
 
-  const posts = await listPosts({ includeDrafts: true });
+  const [posts, stats, recentComments, last24h, last7d] = await Promise.all([
+    listPosts({ includeDrafts: true }),
+    getAllPostStats(),
+    listRecentComments(10),
+    countCommentsSince(isoDaysAgo(1)),
+    countCommentsSince(isoDaysAgo(7)),
+  ]);
   const published = posts.filter((p) => p.published).length;
   const drafts = posts.length - published;
+
+  // Total is the free sum of the per-post commentCount counters (from #1).
+  const totalComments = [...stats.values()].reduce(
+    (sum, s) => sum + s.commentCount,
+    0,
+  );
+  const newestComment = recentComments[0]?.createdAt;
 
   return (
     <div className="flex flex-col gap-8">
@@ -81,6 +105,55 @@ export default async function AdminDashboard() {
         >
           Manage posts →
         </Link>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Comments
+        </h2>
+        <div className="mb-3 rounded-md border border-gray-200 p-4 text-sm dark:border-gray-800">
+          <p className="text-gray-500">
+            {totalComments} total · {last24h} in last 24h · {last7d} in last 7
+            days
+            {newestComment && <> · newest {formatDate(newestComment)}</>}
+          </p>
+        </div>
+
+        {recentComments.length === 0 ? (
+          <p className="text-sm text-gray-500">No comments yet.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-gray-200 dark:divide-gray-800">
+            {recentComments.map((c) => (
+              <li
+                key={`${c.slug}:${c.id}`}
+                className="flex items-start justify-between gap-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                    <span className="font-medium">{c.username}</span>
+                    <span className="text-xs text-gray-500">
+                      {formatDate(c.createdAt)}
+                    </span>
+                    <Link
+                      href={`/blog/${c.slug}`}
+                      className="text-xs text-gray-500 hover:underline"
+                    >
+                      on {c.slug}
+                    </Link>
+                  </div>
+                  <p className="mt-0.5 truncate text-sm text-gray-600 dark:text-gray-400">
+                    {c.message}
+                  </p>
+                </div>
+                <DeleteCommentButton
+                  slug={c.slug}
+                  commentId={c.id}
+                  createdAt={c.createdAt}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

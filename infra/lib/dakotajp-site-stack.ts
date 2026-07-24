@@ -50,6 +50,18 @@ export class DakotajpSiteStack extends cdk.Stack {
       timeToLiveAttribute: "ttl",
     });
 
+    // Cross-post comment feed for the admin dashboard. Comments are otherwise
+    // partitioned per post (COMMENT#<slug>), so there's no way to read them all
+    // by recency. One constant-partition index gives "newest N" / "since T" as a
+    // single query. A single hot partition is the standard, acceptable trade at
+    // personal-blog volume. Only comments written with GSI1PK/GSI1SK appear here.
+    table.addGlobalSecondaryIndex({
+      indexName: "GSI1",
+      partitionKey: { name: "GSI1PK", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "GSI1SK", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // --- Async AI summaries: queue -> summarizer Lambda -> Bedrock ---
     // Decouples saving a post from Bedrock: a save enqueues a job and returns;
     // if Bedrock is slow or down, SQS retries and (after 3 tries) parks the

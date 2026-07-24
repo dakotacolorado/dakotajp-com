@@ -15,6 +15,7 @@ import { Markdown } from "@/components/Markdown";
 import { EditLink } from "@/components/EditLink";
 import { CommentForm } from "@/components/CommentForm";
 import { LikeButton } from "@/components/LikeButton";
+import { DeleteCommentButton } from "@/components/DeleteCommentButton";
 import { SortControl } from "@/components/SortControl";
 
 export const dynamic = "force-dynamic";
@@ -123,7 +124,7 @@ export default async function PostPage({
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700 dark:text-stone-300">
                   {c.message}
                 </p>
-                <div className="mt-1.5">
+                <div className="mt-1.5 flex items-center gap-4">
                   <LikeButton
                     kind="comment"
                     slug={slug}
@@ -132,6 +133,13 @@ export default async function PostPage({
                     initialLikes={c.likes}
                     initiallyLiked={readerLikes.has(`c#${c.id}`)}
                   />
+                  {admin && (
+                    <DeleteCommentButton
+                      slug={slug}
+                      commentId={c.id}
+                      createdAt={c.createdAt}
+                    />
+                  )}
                 </div>
               </div>
             ))
