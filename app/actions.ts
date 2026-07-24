@@ -17,6 +17,7 @@ import {
   type EntityType,
 } from "@/lib/content";
 import { addComment } from "@/lib/comments";
+import { togglePostLike, toggleCommentLike } from "@/lib/likes";
 import { slugify } from "@/lib/slug";
 
 type State = { error?: string } | undefined;
@@ -198,4 +199,27 @@ export async function addCommentAction(
   await addComment(slug, { username, message });
   revalidatePath(`/blog/${slug}`);
   return {};
+}
+
+// --- likes (public, anonymous) ---------------------------------------------
+
+export async function togglePostLikeAction(
+  slug: string,
+): Promise<{ liked: boolean; likes: number }> {
+  const result = await togglePostLike(slug);
+  // Counts feed the sortable lists, so refresh them too.
+  revalidatePath("/");
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${slug}`);
+  return result;
+}
+
+export async function toggleCommentLikeAction(
+  slug: string,
+  commentId: string,
+  createdAt: string,
+): Promise<{ liked: boolean; likes: number }> {
+  const result = await toggleCommentLike(slug, commentId, createdAt);
+  revalidatePath(`/blog/${slug}`);
+  return result;
 }

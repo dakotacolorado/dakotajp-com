@@ -12,6 +12,7 @@ import { ddb, TABLE_NAME } from "./dynamo";
 import { excerpt } from "./excerpt";
 import { deleteComments } from "./comments";
 import { enqueueSummary } from "./summary-queue";
+import { STATS_PK } from "./likes";
 
 /**
  * Content model, single-table DynamoDB, with version history.
@@ -432,6 +433,10 @@ export async function deletePost(slug: string): Promise<void> {
       TableName: TABLE_NAME,
       Key: { pk: bodyPk("POST"), sk: slug },
     }),
+  );
+  // Drop the denormalized like/comment counters with the post.
+  await ddb.send(
+    new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: STATS_PK, sk: slug } }),
   );
   await ddb.send(
     new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),

@@ -32,6 +32,16 @@ Every item lives in one table, distinguished by the `pk` prefix:
 | Post body | `POSTBODY` | `<slug>` | same, same transaction |
 | Version snapshot | `VERSION#PAGE#<key>`, `VERSION#POST#<slug>` | zero-padded version, e.g. `0000000003` | `lib/content.ts` → `commitVersion` |
 | Comment | `COMMENT#<slug>` | `<ISO timestamp>#<uuid>` | `lib/comments.ts` → `addComment` |
+| Post stats | `POSTSTATS` | `<slug>` | `lib/likes.ts` (likes) + `lib/comments.ts` (commentCount) |
+| Like dedupe | `LIKE#<readerId>` | `<slug>#post`, `<slug>#c#<commentId>` | `lib/likes.ts` → toggles |
+
+`POSTSTATS` holds denormalized `{ likes, commentCount }` per post so list views can
+sort by them without reading bodies or comment threads. Both are atomic `ADD`
+counters — a like is **not** an edit, so it never goes through `commitVersion`
+(no version bump, no snapshot) and lives off the `POST` item so a like landing
+mid-save can't be clobbered. Comment items carry their own `likes` attribute.
+`LIKE#<readerId>` items dedupe one like per anonymous reader (a signed cookie ID)
+per target; they're deliberately orphaned when a post is deleted (tiny, harmless).
 
 The `PAGE` / `POST` / `POSTBODY` items are always the *current* version; the
 `VERSION#…` items are immutable snapshots of every save. One save writes all of

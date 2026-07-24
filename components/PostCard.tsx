@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PostMeta } from "@/lib/content";
+import type { Stats } from "@/lib/likes";
 import { formatDate } from "@/lib/date";
 
 /**
@@ -9,8 +10,11 @@ import { formatDate } from "@/lib/date";
  * The blurb prefers the generated `summary` and falls back to the `excerpt`
  * derived from the body on save — so cards look right today and upgrade
  * silently later, with no change here.
+ *
+ * Counts are display-only here; the interactive like button lives on the post
+ * page (a card is itself a link, so nesting a button in it is awkward).
  */
-export function PostCard({ post }: { post: PostMeta }) {
+export function PostCard({ post }: { post: PostMeta & Stats }) {
   const blurb = post.summary ?? post.excerpt;
 
   return (
@@ -27,8 +31,19 @@ export function PostCard({ post }: { post: PostMeta }) {
           )}
         </div>
 
-        <p className="mt-1.5 text-xs uppercase tracking-[0.08em] text-stone-500 dark:text-stone-500">
-          {formatDate(post.publishedAt)}
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs uppercase tracking-[0.08em] text-stone-500 dark:text-stone-500">
+          <span>{formatDate(post.publishedAt)}</span>
+          {post.likes > 0 && (
+            <span className="normal-case tracking-normal">
+              ♥ {post.likes}
+            </span>
+          )}
+          {post.commentCount > 0 && (
+            <span className="normal-case tracking-normal">
+              {post.commentCount}{" "}
+              {post.commentCount === 1 ? "comment" : "comments"}
+            </span>
+          )}
         </p>
 
         {blurb && (

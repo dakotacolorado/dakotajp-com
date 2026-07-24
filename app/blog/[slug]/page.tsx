@@ -2,11 +2,20 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPost } from "@/lib/content";
 import { listComments } from "@/lib/comments";
+import { getPostStats, getReaderPostLikes } from "@/lib/likes";
 import { isAdmin } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
+import {
+  COMMENT_SORT_OPTIONS,
+  DEFAULT_COMMENT_SORT,
+  normalizeCommentSort,
+  sortComments,
+} from "@/lib/sorting";
 import { Markdown } from "@/components/Markdown";
 import { EditLink } from "@/components/EditLink";
 import { CommentForm } from "@/components/CommentForm";
+import { LikeButton } from "@/components/LikeButton";
+import { SortControl } from "@/components/SortControl";
 
 export const dynamic = "force-dynamic";
 
@@ -26,17 +35,28 @@ export async function generateMetadata({
 
 export default async function PostPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ sort?: string }>;
 }) {
-  const { slug } = await params;
+  const [{ slug }, { sort: rawSort }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const post = await getPost(slug);
 
   // Drafts are visible only to the admin.
   const admin = await isAdmin();
   if (!post || (!post.published && !admin)) notFound();
 
-  const comments = await listComments(slug);
+  const [stats, readerLikes, comments] = await Promise.all([
+    getPostStats(slug),
+    getReaderPostLikes(slug),
+    listComments(slug),
+  ]);
+  const sort = normalizeCommentSort(rawSort);
+  const sortedComments = sortComments(comments, sort);
 
   return (
     <article>
@@ -62,18 +82,37 @@ export default async function PostPage({
 
       <Markdown>{post.body}</Markdown>
 
-      <section className="mt-16 border-t border-stone-200 pt-8 dark:border-stone-800">
-        <h2 className="mb-5 text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
-          Comments {comments.length > 0 && `(${comments.length})`}
-        </h2>
+      <div className="mt-10 border-t border-stone-200 pt-6 dark:border-stone-800">
+        <LikeButton
+          kind="post"
+          slug={slug}
+          initialLikes={stats.likes}
+          initiallyLiked={readerLikes.has("post")}
+        />
+      </div>
+
+      <section className="mt-12">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
+            Comments {comments.length > 0 && `(${comments.length})`}
+          </h2>
+          {comments.length > 1 && (
+            <SortControl
+              basePath={`/blog/${slug}`}
+              current={sort}
+              defaultValue={DEFAULT_COMMENT_SORT}
+              options={COMMENT_SORT_OPTIONS}
+            />
+          )}
+        </div>
 
         <div className="mb-8 flex flex-col gap-5">
-          {comments.length === 0 ? (
+          {sortedComments.length === 0 ? (
             <p className="text-sm text-stone-500">
               No comments yet. Be the first.
             </p>
           ) : (
-            comments.map((c) => (
+            sortedComments.map((c) => (
               <div key={c.id}>
                 <div className="mb-1 flex items-baseline gap-2">
                   <span className="text-sm font-medium">{c.username}</span>
@@ -84,6 +123,16 @@ export default async function PostPage({
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700 dark:text-stone-300">
                   {c.message}
                 </p>
+                <div className="mt-1.5">
+                  <LikeButton
+                    kind="comment"
+                    slug={slug}
+                    commentId={c.id}
+                    createdAt={c.createdAt}
+                    initialLikes={c.likes}
+                    initiallyLiked={readerLikes.has(`c#${c.id}`)}
+                  />
+                </div>
               </div>
             ))
           )}
