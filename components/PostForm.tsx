@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createPostAction, updatePostAction } from "@/app/actions";
+import { MarkdownField } from "@/components/MarkdownField";
 
 export function PostForm({
   mode,
@@ -31,15 +32,7 @@ export function PostForm({
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Body (Markdown)</span>
-        <textarea
-          name="body"
-          defaultValue={body}
-          rows={22}
-          className="rounded-md border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-900"
-        />
-      </label>
+      <MarkdownField name="body" label="Body (Markdown)" defaultValue={body} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="published" defaultChecked={published} />
         <span>Published (unchecked = draft, hidden from visitors)</span>

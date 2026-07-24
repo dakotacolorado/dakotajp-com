@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { savePageAction } from "@/app/actions";
+import { MarkdownField } from "@/components/MarkdownField";
 
 export function PageEditor({
   pageKey,
@@ -28,15 +29,7 @@ export function PageEditor({
           className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Content (Markdown)</span>
-        <textarea
-          name="body"
-          defaultValue={body}
-          rows={22}
-          className="rounded-md border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-900"
-        />
-      </label>
+      <MarkdownField name="body" label="Content (Markdown)" defaultValue={body} />
       {state?.error && (
         <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
       )}
