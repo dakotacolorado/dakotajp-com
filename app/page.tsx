@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPage, listPosts } from "@/lib/content";
+import { getAllPostStats } from "@/lib/likes";
 import { SEED_PAGES } from "@/lib/seed";
 import { isAdmin } from "@/lib/auth";
 import { Markdown } from "@/components/Markdown";
@@ -15,7 +16,15 @@ export default async function HomePage() {
   const [page, admin] = await Promise.all([getPage("about"), isAdmin()]);
   const about = page ?? SEED_PAGES.about;
   // Drafts appear here only for the logged-in admin, same rule as /blog.
-  const posts = await listPosts({ includeDrafts: admin, limit: RECENT_COUNT });
+  // The home feed is a newest-first teaser; full sorting lives on /blog.
+  const [recent, stats] = await Promise.all([
+    listPosts({ includeDrafts: admin, limit: RECENT_COUNT }),
+    getAllPostStats(),
+  ]);
+  const posts = recent.map((p) => ({
+    ...p,
+    ...(stats.get(p.slug) ?? { likes: 0, commentCount: 0 }),
+  }));
 
   return (
     <>

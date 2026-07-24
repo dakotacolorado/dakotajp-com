@@ -1,11 +1,12 @@
 import "server-only";
 import {
   QueryCommand,
-  PutCommand,
   BatchWriteCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import { ddb, TABLE_NAME } from "./dynamo";
+import { STATS_PK } from "./likes";
 
 /**
  * Public blog comments (no login).
@@ -22,6 +23,7 @@ export interface Comment {
   username: string;
   message: string;
   createdAt: string;
+  likes: number;
 }
 
 const pk = (slug: string) => `COMMENT#${slug}`;
@@ -40,6 +42,7 @@ export async function listComments(slug: string): Promise<Comment[]> {
     username: item.username as string,
     message: item.message as string,
     createdAt: item.createdAt as string,
+    likes: (item.likes as number) ?? 0,
   }));
 }
 
@@ -54,11 +57,29 @@ export async function addComment(
     username: input.username,
     message: input.message,
     createdAt,
+    likes: 0,
   };
+  // Write the comment and bump the post's commentCount atomically, so the
+  // denormalized count the blog list sorts by can't drift from reality.
   await ddb.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: { pk: pk(slug), sk: `${createdAt}#${id}`, ...comment },
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: TABLE_NAME,
+            Item: { pk: pk(slug), sk: `${createdAt}#${id}`, ...comment },
+          },
+        },
+        {
+          Update: {
+            TableName: TABLE_NAME,
+            Key: { pk: STATS_PK, sk: slug },
+            UpdateExpression: "ADD #count :one",
+            ExpressionAttributeNames: { "#count": "commentCount" },
+            ExpressionAttributeValues: { ":one": 1 },
+          },
+        },
+      ],
     }),
   );
   return comment;
