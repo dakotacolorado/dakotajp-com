@@ -1,20 +1,20 @@
 /**
  * Site identity in one place.
  *
- * The wordmark (top-left, footer) and the full name (page metadata, resume)
- * are deliberately separate: the mark wants to be short and the metadata wants
- * to be complete. Changing how the name reads across the whole site is a
- * one-line edit here.
+ * Two forms of the same name: the mark wants to be quiet, and page titles want
+ * to be legible in a browser tab and a search result. Changing how the name
+ * reads across the site is a one-line edit here.
+ *
+ * The middle name is deliberately absent — the domain already carries the "jp".
  */
 export const SITE = {
-  /** Top-left mark. Short reads calmer than complete — the domain carries the "jp". */
-  wordmark: "Dakota Parker",
+  /** Top-left mark. Lowercase on purpose — reads as a corner of the internet. */
+  wordmark: "dakota parker",
 
-  /** Full name — <title>, description, resume header, copyright. */
-  fullName: "Dakota James Parker",
+  /** <title>, descriptions, anywhere the name is read rather than looked at. */
+  name: "Dakota Parker",
 
-  /** Shown in the footer, where the middle initial quietly makes sense. */
   domain: "dakotajp.com",
 
-  description: "Personal site of Dakota James Parker — writing, work, and résumé.",
+  description: "Writing, work, and résumé.",
 } as const;

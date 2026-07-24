@@ -3,25 +3,39 @@ import {
   GetCommand,
   QueryCommand,
   DeleteCommand,
+  BatchGetCommand,
+  UpdateCommand,
   TransactWriteCommand,
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./dynamo";
+import { excerpt } from "./excerpt";
+import { deleteComments } from "./comments";
 
 /**
  * Content model, single-table DynamoDB, with version history.
  *
- *   Page (About / Resume):  pk = "PAGE"   sk = "<key>"
- *   Post (blog):            pk = "POST"   sk = "<slug>"
+ *   Page (About / Resume):  pk = "PAGE"      sk = "<key>"
+ *   Post metadata (blog):   pk = "POST"      sk = "<slug>"
+ *   Post body:              pk = "POSTBODY"  sk = "<slug>"
  *
- * The item above is always the *current* version (what public pages read).
+ * The items above are always the *current* version (what public pages read).
  * Every save also writes an immutable snapshot:
  *
  *   Version snapshot:       pk = "VERSION#<TYPE>#<id>"   sk = "<padded version>"
  *
- * The current-item write and the snapshot write happen in a single
- * transaction, so they never diverge. Rollback restores an old snapshot's
- * content as a new (highest) version, keeping history linear and auditable.
+ * All writes for one save happen in a single transaction, so they never
+ * diverge. Rollback restores an old snapshot's content as a new (highest)
+ * version, keeping history linear and auditable.
+ *
+ * Why a post's body lives in its own item: the blog index and the home page
+ * list posts, and a DynamoDB query is capped at 1 MB *before* any projection
+ * is applied — so bodies stored on the metadata item would be read (and paid
+ * for) on every listing, then thrown away. Splitting them keeps list reads
+ * proportional to the number of posts, not the length of them. The detail page
+ * fetches both items in one BatchGet, so it costs no extra round trip.
+ *
+ * Pages keep their body inline: they're singletons, never listed.
  */
 
 export type EntityType = "PAGE" | "POST";
@@ -29,18 +43,32 @@ export type EntityType = "PAGE" | "POST";
 const VERSION_PAD = 10;
 const pad = (n: number) => String(n).padStart(VERSION_PAD, "0");
 const versionPk = (type: EntityType, id: string) => `VERSION#${type}#${id}`;
+const bodyPk = (type: EntityType) => `${type}BODY`;
 
 /**
- * Core write: bump the version, write the current item and its snapshot
+ * Fields *derived* from the body rather than authored — currently the AI
+ * summary. They are carried across saves but never enter a version snapshot:
+ * summarizing is not an edit, so it must not appear in history, and a rollback
+ * should restore the body you wrote rather than a summary a model wrote about
+ * some other version. `summarySourceVersion` is what makes staleness visible.
+ */
+const DERIVED_FIELDS = ["summary", "summarySourceVersion"] as const;
+
+/**
+ * Core write: bump the version, write the current item(s) and the snapshot
  * atomically. `content` holds the mutable versioned fields (title/body/
- * published); `extraCurrent` holds fields that live only on the current item
- * (e.g. a post's slug).
+ * published/…); `extraCurrent` holds fields that live only on the current item.
  */
 async function commitVersion(
   type: EntityType,
   id: string,
   content: Record<string, unknown>,
-  opts?: { restoredFrom?: number; extraCurrent?: Record<string, unknown> },
+  opts?: {
+    restoredFrom?: number;
+    extraCurrent?: Record<string, unknown>;
+    /** Store the body in its own item instead of on the current item. */
+    splitBody?: boolean;
+  },
 ): Promise<number> {
   const key = { pk: type, sk: id };
   const cur = await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
@@ -58,6 +86,11 @@ async function commitVersion(
     updatedAt: savedAt,
   };
 
+  // A stale summary stays visible (and flagged) until the summarizer catches up.
+  for (const field of DERIVED_FIELDS) {
+    if (cur.Item?.[field] !== undefined) currentItem[field] = cur.Item[field];
+  }
+
   const snapshotItem: Record<string, unknown> = {
     pk: versionPk(type, id),
     sk: pad(nextVersion),
@@ -69,11 +102,25 @@ async function commitVersion(
     ...content,
   };
 
+  let bodyItem: Record<string, unknown> | null = null;
+  if (opts?.splitBody) {
+    const body = String(content.body ?? "");
+    delete currentItem.body;
+    // Computed here, in the one place every write funnels through, so the
+    // excerpt can never drift from the body it describes — including on
+    // rollback, which recomputes it from the restored body.
+    currentItem.excerpt = excerpt(body);
+    bodyItem = { pk: bodyPk(type), sk: id, body };
+  }
+
   await ddb.send(
     new TransactWriteCommand({
       TransactItems: [
         { Put: { TableName: TABLE_NAME, Item: currentItem } },
         { Put: { TableName: TABLE_NAME, Item: snapshotItem } },
+        ...(bodyItem
+          ? [{ Put: { TableName: TABLE_NAME, Item: bodyItem } }]
+          : []),
       ],
     }),
   );
@@ -108,10 +155,7 @@ export async function listVersions(
     savedAt: it.savedAt as string,
     restoredFrom: it.restoredFrom as number | undefined,
     title: (it.title as string) ?? "",
-    preview: String(it.body ?? "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 140),
+    preview: excerpt(String(it.body ?? ""), 140),
   }));
 }
 
@@ -138,14 +182,14 @@ export async function rollbackToVersion(
     title: snap.title,
     body: snap.body,
   };
-  const extraCurrent: Record<string, unknown> = {};
   if (type === "POST") {
     content.published = snap.published ?? false;
-    extraCurrent.slug = id;
+    content.publishedAt = snap.publishedAt ?? snap.savedAt;
+    content.tags = snap.tags ?? [];
   }
   return commitVersion(type, id, content, {
     restoredFrom: version,
-    extraCurrent,
+    splitBody: type === "POST",
   });
 }
 
@@ -210,31 +254,60 @@ export async function savePage(
 
 // --- Posts (blog) ----------------------------------------------------------
 
-export interface Post {
+/** Everything the list views need. Deliberately excludes the body. */
+export interface PostMeta {
   slug: string;
   title: string;
-  body: string; // markdown
   published: boolean;
-  version: number;
+  /** Authored publish date — backdatable, and what the site sorts by. */
+  publishedAt: string;
   createdAt: string;
   updatedAt: string;
+  version: number;
+  /** Plain-text opening, derived from the body on save. Always present. */
+  excerpt: string;
+  tags: string[];
+  /** AI-generated. Absent until a summarizer has run over this post. */
+  summary?: string;
+  /** Body version `summary` was generated from; !== version means stale. */
+  summarySourceVersion?: number;
 }
 
-function itemToPost(item: Record<string, unknown>): Post {
+export interface Post extends PostMeta {
+  body: string; // markdown
+}
+
+export interface PostInput {
+  title: string;
+  body: string;
+  published: boolean;
+  publishedAt?: string;
+  tags?: string[];
+}
+
+function itemToMeta(item: Record<string, unknown>): PostMeta {
+  const createdAt = item.createdAt as string;
   return {
-    slug: item.slug as string,
+    slug: item.sk as string,
     title: item.title as string,
-    body: item.body as string,
     published: Boolean(item.published),
-    version: (item.version as number) ?? 1,
-    createdAt: item.createdAt as string,
+    // Posts written before publishedAt existed fall back to their write time.
+    publishedAt: (item.publishedAt as string) ?? createdAt,
+    createdAt,
     updatedAt: item.updatedAt as string,
+    version: (item.version as number) ?? 1,
+    excerpt: (item.excerpt as string) ?? "",
+    tags: (item.tags as string[]) ?? [],
+    summary: item.summary as string | undefined,
+    summarySourceVersion: item.summarySourceVersion as number | undefined,
   };
 }
 
+/** Post metadata only — no body read. This is what every list view uses. */
 export async function listPosts(opts?: {
   includeDrafts?: boolean;
-}): Promise<Post[]> {
+  limit?: number;
+}): Promise<PostMeta[]> {
   const res = await ddb.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -242,56 +315,121 @@ export async function listPosts(opts?: {
       ExpressionAttributeValues: { ":pk": "POST" },
     }),
   );
-  let posts = (res.Items ?? []).map(itemToPost);
+  let posts = (res.Items ?? []).map(itemToMeta);
   if (!opts?.includeDrafts) posts = posts.filter((p) => p.published);
-  posts.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)); // newest first
-  return posts;
+  posts.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)); // newest first
+  return opts?.limit ? posts.slice(0, opts.limit) : posts;
 }
 
-export async function getPost(slug: string): Promise<Post | null> {
+/** Single-item read for when the body isn't needed (existence checks, admin). */
+export async function getPostMeta(slug: string): Promise<PostMeta | null> {
   const res = await ddb.send(
     new GetCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),
   );
-  if (!res.Item) return null;
-  return itemToPost(res.Item);
+  return res.Item ? itemToMeta(res.Item) : null;
 }
 
-export async function createPost(input: {
-  slug: string;
-  title: string;
-  body: string;
-  published: boolean;
-}): Promise<Post> {
-  const existing = await getPost(input.slug);
-  if (existing) throw new Error("A post with this slug already exists.");
+/** Metadata + body, in one round trip. */
+export async function getPost(slug: string): Promise<Post | null> {
+  const res = await ddb.send(
+    new BatchGetCommand({
+      RequestItems: {
+        [TABLE_NAME]: {
+          Keys: [
+            { pk: "POST", sk: slug },
+            { pk: bodyPk("POST"), sk: slug },
+          ],
+        },
+      },
+    }),
+  );
+  const items = res.Responses?.[TABLE_NAME] ?? [];
+  const meta = items.find((it) => it.pk === "POST");
+  if (!meta) return null;
+  const body = items.find((it) => it.pk === bodyPk("POST"))?.body;
+  return { ...itemToMeta(meta), body: (body as string) ?? "" };
+}
 
+export async function createPost(
+  input: PostInput & { slug: string },
+): Promise<Post> {
+  if (await getPostMeta(input.slug)) {
+    throw new Error("A post with this slug already exists.");
+  }
   await commitVersion(
     "POST",
     input.slug,
-    { title: input.title, body: input.body, published: input.published },
-    { extraCurrent: { slug: input.slug } },
+    {
+      title: input.title,
+      body: input.body,
+      published: input.published,
+      publishedAt: input.publishedAt ?? new Date().toISOString(),
+      tags: input.tags ?? [],
+    },
+    { splitBody: true },
   );
   return (await getPost(input.slug))!;
 }
 
 export async function updatePost(
   slug: string,
-  input: { title: string; body: string; published: boolean },
+  input: PostInput,
 ): Promise<Post | null> {
-  const existing = await getPost(slug);
+  const existing = await getPostMeta(slug);
   if (!existing) return null;
 
   await commitVersion(
     "POST",
     slug,
-    { title: input.title, body: input.body, published: input.published },
-    { extraCurrent: { slug } },
+    {
+      title: input.title,
+      body: input.body,
+      published: input.published,
+      publishedAt: input.publishedAt ?? existing.publishedAt,
+      tags: input.tags ?? existing.tags,
+    },
+    { splitBody: true },
   );
   return getPost(slug);
 }
 
+/**
+ * Attach an AI-generated summary to a post.
+ *
+ * Deliberately not a `commitVersion` call: summarizing is not an edit, so it
+ * must not bump the version or write a snapshot. Stamping the source version
+ * is what lets a later job find posts whose summary has fallen behind their
+ * body (`summarySourceVersion !== version`) and refresh just those.
+ */
+export async function setPostSummary(
+  slug: string,
+  summary: string,
+  sourceVersion: number,
+): Promise<void> {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: "POST", sk: slug },
+      UpdateExpression: "SET #summary = :summary, #source = :source",
+      ExpressionAttributeNames: {
+        "#summary": "summary",
+        "#source": "summarySourceVersion",
+      },
+      ExpressionAttributeValues: { ":summary": summary, ":source": sourceVersion },
+      ConditionExpression: "attribute_exists(pk)",
+    }),
+  );
+}
+
 export async function deletePost(slug: string): Promise<void> {
   await deleteVersionHistory("POST", slug);
+  await deleteComments(slug);
+  await ddb.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: bodyPk("POST"), sk: slug },
+    }),
+  );
   await ddb.send(
     new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),
   );

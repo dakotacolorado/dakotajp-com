@@ -25,6 +25,30 @@ async function assertAdmin() {
   if (!(await isAdmin())) throw new Error("Unauthorized");
 }
 
+/**
+ * A `<input type="date">` submits `yyyy-mm-dd`. Anchor it to midnight UTC so
+ * the stored instant matches what the site renders (see `lib/date.ts`).
+ * Anything unparseable falls back to now rather than poisoning the sort order.
+ */
+function parsePublishedAt(raw: string): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+  const date = new Date(`${raw}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+const MAX_TAGS = 8;
+
+/** "AWS, dynamodb, ,aws" → ["aws", "dynamodb"] */
+function parseTags(raw: string): string[] {
+  const seen = new Set<string>();
+  for (const tag of raw.split(",")) {
+    const clean = tag.trim().toLowerCase().replace(/\s+/g, "-");
+    if (clean && clean.length <= 32) seen.add(clean);
+    if (seen.size >= MAX_TAGS) break;
+  }
+  return [...seen];
+}
+
 // --- auth ------------------------------------------------------------------
 
 export async function loginAction(
@@ -82,10 +106,18 @@ export async function createPostAction(
   if (!slug) return { error: "Title must contain letters or numbers." };
 
   try {
-    await createPost({ slug, title, body, published });
+    await createPost({
+      slug,
+      title,
+      body,
+      published,
+      publishedAt: parsePublishedAt(String(formData.get("publishedAt") ?? "")),
+      tags: parseTags(String(formData.get("tags") ?? "")),
+    });
   } catch {
     return { error: "A post with a similar title already exists." };
   }
+  revalidatePath("/");
   revalidatePath("/blog");
   redirect(`/blog/${slug}`);
 }
@@ -101,7 +133,14 @@ export async function updatePostAction(
   const published = formData.get("published") === "on";
   if (!slug || !title) return { error: "Title is required." };
 
-  await updatePost(slug, { title, body, published });
+  await updatePost(slug, {
+    title,
+    body,
+    published,
+    publishedAt: parsePublishedAt(String(formData.get("publishedAt") ?? "")),
+    tags: parseTags(String(formData.get("tags") ?? "")),
+  });
+  revalidatePath("/");
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
   redirect(`/blog/${slug}`);
@@ -112,6 +151,7 @@ export async function deletePostAction(formData: FormData): Promise<void> {
   const slug = String(formData.get("slug") ?? "");
   if (slug) {
     await deletePost(slug);
+    revalidatePath("/");
     revalidatePath("/blog");
   }
   redirect("/admin/blog");
@@ -132,6 +172,7 @@ export async function rollbackAction(formData: FormData): Promise<void> {
     revalidatePath(id === "about" ? "/" : `/${id}`);
     redirect(`/admin/pages/${id}`);
   } else {
+    revalidatePath("/");
     revalidatePath("/blog");
     revalidatePath(`/blog/${id}`);
     redirect(`/admin/blog/${id}/edit`);

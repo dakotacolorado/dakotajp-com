@@ -28,12 +28,30 @@ Every item lives in one table, distinguished by the `pk` prefix:
 | Entity | `pk` | `sk` | Written by |
 | --- | --- | --- | --- |
 | Page (About, Resume) | `PAGE` | `<key>` | `lib/content.ts` → `savePage` |
-| Post (blog) | `POST` | `<slug>` | `lib/content.ts` → `createPost` / `updatePost` |
+| Post metadata (blog) | `POST` | `<slug>` | `lib/content.ts` → `createPost` / `updatePost` |
+| Post body | `POSTBODY` | `<slug>` | same, same transaction |
 | Version snapshot | `VERSION#PAGE#<key>`, `VERSION#POST#<slug>` | zero-padded version, e.g. `0000000003` | `lib/content.ts` → `commitVersion` |
 | Comment | `COMMENT#<slug>` | `<ISO timestamp>#<uuid>` | `lib/comments.ts` → `addComment` |
 
-The `PAGE` / `POST` item is always the *current* version; the `VERSION#…`
-items are immutable snapshots of every save.
+The `PAGE` / `POST` / `POSTBODY` items are always the *current* version; the
+`VERSION#…` items are immutable snapshots of every save. One save writes all of
+them in a single transaction, so a `POST` without a matching `POSTBODY` should
+never exist.
+
+**A post's body is not on its `POST` item.** Metadata (title, `publishedAt`,
+`tags`, `excerpt`, `summary`) and body are separate items so list views can read
+every post without reading every body — a query is capped at 1 MB *before*
+projection. Scanning for content means looking at `POSTBODY`, not `POST`.
+
+Notable attributes on a `POST` item:
+
+| Attribute | Meaning |
+| --- | --- |
+| `publishedAt` | Authored date; what the site sorts and displays. May be backdated, so it can differ from `createdAt`. |
+| `excerpt` | Plain-text opening, recomputed from the body on every save. Never edit by hand — the next save overwrites it. |
+| `tags` | List of strings, lowercased and hyphenated on input. |
+| `summary` | AI-generated. Absent until a summarizer has run. |
+| `summarySourceVersion` | Body version `summary` was generated from. If it differs from `version`, the summary is stale. |
 
 ## 1. Full scan (everything)
 
@@ -92,7 +110,19 @@ Current posts (including drafts):
 aws dynamodb query --table-name dakotajp-site --region us-east-1 \
   --key-condition-expression 'pk = :pk' \
   --expression-attribute-values '{":pk":{"S":"POST"}}' \
-  --output json | jq -r '.Items[] | "\(.sk.S)\tpublished=\(.published.BOOL)\tv\(.version.N // "-")\t\(.title.S)"'
+  --output json | jq -r '.Items[] | "\(.sk.S)\tpublished=\(.published.BOOL)\tv\(.version.N // "-")\t\(.publishedAt.S // "-")\t\(.title.S)"'
+```
+
+Posts whose AI summary has fallen behind the body:
+
+```bash
+aws dynamodb query --table-name dakotajp-site --region us-east-1 \
+  --key-condition-expression 'pk = :pk' \
+  --expression-attribute-values '{":pk":{"S":"POST"}}' \
+  --output json | jq -r '
+    .Items[]
+    | select(.summary != null and .summarySourceVersion.N != .version.N)
+    | "stale: \(.sk.S) — summary of v\(.summarySourceVersion.N), body is v\(.version.N)"'
 ```
 
 Version history for one entity (newest first):
@@ -128,11 +158,21 @@ aws dynamodb scan --table-name dakotajp-site --region us-east-1 \
 > `--filter-expression` runs *after* the read, so it reduces output but not
 > read cost. Fine at this table's size.
 
-## 3. Read one item's full body
+## 3. Read one post's full body
+
+The body is on the `POSTBODY` item, not `POST`:
 
 ```bash
 aws dynamodb get-item --table-name dakotajp-site --region us-east-1 \
-  --key '{"pk":{"S":"POST"},"sk":{"S":"hello-world"}}' \
+  --key '{"pk":{"S":"POSTBODY"},"sk":{"S":"hello-world"}}' \
+  --output json | jq -r '.Item.body.S'
+```
+
+A page's body *is* inline on its own item, since pages are never listed:
+
+```bash
+aws dynamodb get-item --table-name dakotajp-site --region us-east-1 \
+  --key '{"pk":{"S":"PAGE"},"sk":{"S":"about"}}' \
   --output json | jq -r '.Item.body.S'
 ```
 
@@ -153,10 +193,21 @@ Keep it out of git — it contains full page and post bodies.
 - **`VERSION#…` items with no matching current item** are orphaned history.
   `deletePost` clears history before deleting the current item, so this only
   happens if a delete was interrupted.
-- **`COMMENT#<slug>` items with no matching `POST` item** are expected, not a
-  bug you can rule out: `deletePost` (`lib/content.ts`) removes the post and
-  its version history but never touches comments. Deleting a post always
-  strands its comment thread. Find them with:
+- **A `POST` with no `POSTBODY`** (or the reverse) means a save was not applied
+  atomically, which the transaction in `commitVersion` should make impossible.
+  Treat it as a real bug, not stale data. Find them with:
+
+  ```bash
+  aws dynamodb scan --table-name dakotajp-site --region us-east-1 \
+    --output json | jq -r '
+      (.Items | map(select(.pk.S == "POST")     | .sk.S)) as $meta
+    | (.Items | map(select(.pk.S == "POSTBODY") | .sk.S)) as $body
+    | (($meta - $body) | .[] | "missing body: \(.)"),
+      (($body - $meta) | .[] | "orphaned body: \(.)")'
+  ```
+- **Orphaned `COMMENT#<slug>` threads** should no longer appear: `deletePost`
+  calls `deleteComments`. Any you find predate that fix (or come from a
+  half-finished delete). Find them with:
 
   ```bash
   aws dynamodb scan --table-name dakotajp-site --region us-east-1 \
@@ -166,27 +217,18 @@ Keep it out of git — it contains full page and post bodies.
       | select((.pk.S | sub("^COMMENT#"; "")) as $s | $slugs | index($s) | not)
       | "orphaned: \(.pk.S) | \(.sk.S) | \(.username.S)"'
   ```
-- **`pk = "GUESTBOOK"`** is legacy from the initial deploy smoke test. Nothing
-  in the app reads or writes it anymore; it is safe to ignore, and safe to
-  delete once you have a backup.
+- **A `summary` with no `summarySourceVersion`**, or one that doesn't match
+  `version`, means the summary describes an older body. That is expected and
+  safe — the site keeps showing it until a summarizer refreshes it. See the
+  stale-summary query in section 2.
 
 ## Last observed state (2026-07-24)
 
-2 items total, no pagination needed:
+**The table is empty — 0 items.** The site renders entirely from the fallbacks
+in `lib/seed.ts` until something is saved in `/admin`.
 
-| `pk` | `sk` | Notes |
-| --- | --- | --- |
-| `COMMENT#hello-world` | `2026-07-24T09:57:43.916Z#d75c9d9…` | from `chabba` — **orphaned**, its post is gone |
-| `GUESTBOOK` | `2026-07-24T09:06:15.588Z#b4ceaec…` | legacy deploy smoke test |
-
-There is currently **no published or draft content in the table at all**:
-
-- No `POST` items. A `POST` / `hello-world` item ("Hello World",
-  `published: false`, no `version` attribute — written before the versioning
-  code landed) was present at the start of this scan and deleted partway
-  through it. Its comment above is the leftover.
-- No `PAGE` items — the About and Resume pages have never been saved, so the
-  public pages fall back to whatever the app renders for a missing page.
-- No `VERSION#…` snapshots — nothing has been written since versioning landed
-  in `lib/content.ts`. The first admin save of any page or post creates
-  `version: 1` and its first snapshot.
+Earlier the same day it held a `POST`/`hello-world` draft, one comment, and a
+legacy `GUESTBOOK` row from the first deploy's smoke test; all have since been
+deleted. Nothing has been written since, so there are no `PAGE` items and no
+`VERSION#…` snapshots yet. The first admin save of any page or post creates
+`version: 1` and its first snapshot.

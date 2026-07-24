@@ -26,6 +26,8 @@ export default async function EditPost({
         title={post.title}
         body={post.body}
         published={post.published}
+        publishedAt={post.publishedAt}
+        tags={post.tags}
       />
       <VersionHistory type="POST" id={post.slug} />
     </div>

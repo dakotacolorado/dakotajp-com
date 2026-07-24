@@ -1,5 +1,9 @@
 import "server-only";
-import { QueryCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  QueryCommand,
+  PutCommand,
+  BatchWriteCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import { ddb, TABLE_NAME } from "./dynamo";
 
@@ -58,4 +62,32 @@ export async function addComment(
     }),
   );
   return comment;
+}
+
+/**
+ * Delete every comment on a post. Called by `deletePost` — without it, deleting
+ * a post leaves its thread behind forever, pointing at a slug that no longer
+ * resolves.
+ */
+export async function deleteComments(slug: string): Promise<void> {
+  const res = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": pk(slug) },
+      ProjectionExpression: "pk, sk",
+    }),
+  );
+  const items = res.Items ?? [];
+  for (let i = 0; i < items.length; i += 25) {
+    await ddb.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: items.slice(i, i + 25).map((it) => ({
+            DeleteRequest: { Key: { pk: it.pk, sk: it.sk } },
+          })),
+        },
+      }),
+    );
+  }
 }
