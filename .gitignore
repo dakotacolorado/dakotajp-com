@@ -33,5 +33,5 @@ npm-debug.log*
 .aws/
 **/aws-exports.js
 
-# Local Claude settings (machine-specific)
-.claude/settings.local.json
+# Claude Code local config (machine-specific)
+.claude/
