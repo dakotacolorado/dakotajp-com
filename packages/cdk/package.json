@@ -1,9 +1,9 @@
 {
-  "name": "dakotajp-com-infra",
+  "name": "@dakotajp/cdk",
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "infra": "bin/app.ts"
+    "cdk-app": "bin/app.ts"
   },
   "scripts": {
     "synth": "cdk synth",
