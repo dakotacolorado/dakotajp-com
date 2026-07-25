@@ -9,13 +9,17 @@
     "synth": "cdk synth",
     "diff": "cdk diff",
     "deploy": "cdk deploy",
-    "destroy": "cdk destroy"
+    "destroy": "cdk destroy",
+    "test": "jest"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.10.0",
     "aws-cdk": "^2.170.0",
     "esbuild": "^0.24.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   },
@@ -26,5 +30,15 @@
     "aws-cdk-lib": "^2.170.0",
     "cdk-nextjs-standalone": "^4.3.3",
     "constructs": "^10.4.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["<rootDir>/src/**/*.spec.ts"],
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        { "tsconfig": { "module": "commonjs", "moduleResolution": "node" } }
+      ]
+    }
   }
 }
