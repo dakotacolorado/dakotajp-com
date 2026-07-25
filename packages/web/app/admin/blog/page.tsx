@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
-import { listPosts } from "@/lib/content";
-import { DeletePostButton } from "@/components/DeletePostButton";
+import { isAdmin } from "@/lib/domain/auth";
+import { listPosts } from "@/lib/domain/content";
+import { DeletePostButton } from "@/components/admin/DeletePostButton";
 
 export const dynamic = "force-dynamic";
 

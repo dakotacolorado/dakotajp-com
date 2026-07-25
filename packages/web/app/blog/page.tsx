@@ -1,15 +1,15 @@
-import { listPosts } from "@/lib/content";
-import { getAllPostStats } from "@/lib/likes";
-import { isAdmin } from "@/lib/auth";
-import { EditLink } from "@/components/EditLink";
-import { PostCard } from "@/components/PostCard";
-import { SortControl } from "@/components/SortControl";
+import { listPosts } from "@/lib/domain/content";
+import { getAllPostStats } from "@/lib/domain/likes";
+import { isAdmin } from "@/lib/domain/auth";
+import { EditLink } from "@/components/admin/EditLink";
+import { PostCard } from "@/components/public/PostCard";
+import { SortControl } from "@/components/public/SortControl";
 import {
   POST_SORT_OPTIONS,
   DEFAULT_POST_SORT,
   normalizePostSort,
   sortPosts,
-} from "@/lib/sorting";
+} from "@/lib/domain/sorting";
 
 export const dynamic = "force-dynamic";
 

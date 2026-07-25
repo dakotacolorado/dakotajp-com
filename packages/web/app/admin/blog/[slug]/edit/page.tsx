@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
-import { getPost } from "@/lib/content";
-import { PostForm } from "@/components/PostForm";
-import { VersionHistory } from "@/components/VersionHistory";
+import { isAdmin } from "@/lib/domain/auth";
+import { getPost } from "@/lib/domain/content";
+import { PostForm } from "@/components/admin/PostForm";
+import { VersionHistory } from "@/components/admin/VersionHistory";
 
 export const dynamic = "force-dynamic";
 

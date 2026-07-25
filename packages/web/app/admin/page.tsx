@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
-import { listPosts } from "@/lib/content";
-import { getAllPostStats } from "@/lib/likes";
-import { listRecentComments, countCommentsSince } from "@/lib/comments";
-import { formatDate } from "@/lib/date";
+import { getSession } from "@/lib/domain/auth";
+import { listPosts } from "@/lib/domain/content";
+import { getAllPostStats } from "@/lib/domain/likes";
+import { listRecentComments, countCommentsSince } from "@/lib/domain/comments";
+import { formatDate } from "@/lib/util/date";
 import { logoutAction } from "@/app/actions";
-import { DeleteCommentButton } from "@/components/DeleteCommentButton";
+import { DeleteCommentButton } from "@/components/admin/DeleteCommentButton";
 
 export const dynamic = "force-dynamic";
 

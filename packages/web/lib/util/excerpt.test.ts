@@ -1,4 +1,4 @@
-import { excerpt } from "./excerpt";
+import { excerpt } from "@/lib/util/excerpt";
 
 describe("excerpt — markdown stripping", () => {
   it("leaves short plain text unchanged", () => {

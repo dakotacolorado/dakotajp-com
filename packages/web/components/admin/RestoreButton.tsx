@@ -1,7 +1,7 @@
 "use client";
 
 import { rollbackAction } from "@/app/actions";
-import type { EntityType } from "@/lib/content";
+import type { EntityType } from "@/lib/domain/content";
 
 export function RestoreButton({
   type,

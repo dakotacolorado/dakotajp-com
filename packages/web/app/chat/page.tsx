@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ChatBox } from "@/components/ChatBox";
+import { ChatBox } from "@/components/chat/ChatBox";
 
 export const metadata: Metadata = {
   title: "Ask AI",

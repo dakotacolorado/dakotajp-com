@@ -1,4 +1,4 @@
-import { slugify } from "./slug";
+import { slugify } from "@/lib/util/slug";
 
 describe("slugify", () => {
   it("lowercases and hyphenates words", () => {

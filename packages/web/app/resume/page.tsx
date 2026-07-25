@@ -1,7 +1,7 @@
-import { getPage } from "@/lib/content";
-import { SEED_PAGES } from "@/lib/seed";
-import { Markdown } from "@/components/Markdown";
-import { EditLink } from "@/components/EditLink";
+import { getPage } from "@/lib/domain/content";
+import { SEED_PAGES } from "@/lib/config/seed";
+import { Markdown } from "@/components/ui/Markdown";
+import { EditLink } from "@/components/admin/EditLink";
 
 export const dynamic = "force-dynamic";
 

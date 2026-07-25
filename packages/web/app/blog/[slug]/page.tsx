@@ -1,22 +1,22 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPost } from "@/lib/content";
-import { listComments } from "@/lib/comments";
-import { getPostStats, getReaderPostLikes } from "@/lib/likes";
-import { isAdmin } from "@/lib/auth";
-import { formatDate } from "@/lib/date";
+import { getPost } from "@/lib/domain/content";
+import { listComments } from "@/lib/domain/comments";
+import { getPostStats, getReaderPostLikes } from "@/lib/domain/likes";
+import { isAdmin } from "@/lib/domain/auth";
+import { formatDate } from "@/lib/util/date";
 import {
   COMMENT_SORT_OPTIONS,
   DEFAULT_COMMENT_SORT,
   normalizeCommentSort,
-} from "@/lib/sorting";
-import { buildThread } from "@/lib/comment-tree";
-import { Markdown } from "@/components/Markdown";
-import { EditLink } from "@/components/EditLink";
-import { CommentForm } from "@/components/CommentForm";
-import { LikeButton } from "@/components/LikeButton";
-import { CommentThread } from "@/components/CommentThread";
-import { SortControl } from "@/components/SortControl";
+} from "@/lib/domain/sorting";
+import { buildThread } from "@/lib/domain/comment-tree";
+import { Markdown } from "@/components/ui/Markdown";
+import { EditLink } from "@/components/admin/EditLink";
+import { CommentForm } from "@/components/public/CommentForm";
+import { LikeButton } from "@/components/public/LikeButton";
+import { CommentThread } from "@/components/public/CommentThread";
+import { SortControl } from "@/components/public/SortControl";
 
 export const dynamic = "force-dynamic";
 

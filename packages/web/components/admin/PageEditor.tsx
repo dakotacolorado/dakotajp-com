@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { savePageAction } from "@/app/actions";
-import { MarkdownField } from "@/components/MarkdownField";
+import { MarkdownField } from "@/components/ui/MarkdownField";
 
 export function PageEditor({
   pageKey,
