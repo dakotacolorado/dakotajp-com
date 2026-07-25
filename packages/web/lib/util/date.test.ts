@@ -1,4 +1,4 @@
-import { formatDate } from "./date";
+import { formatDate } from "@/lib/util/date";
 
 describe("formatDate", () => {
   it("formats an ISO date as a long US date", () => {

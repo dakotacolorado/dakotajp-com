@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getPage, listPosts } from "@/lib/content";
-import { getAllPostStats } from "@/lib/likes";
-import { SEED_PAGES } from "@/lib/seed";
-import { isAdmin } from "@/lib/auth";
-import { Markdown } from "@/components/Markdown";
-import { EditLink } from "@/components/EditLink";
-import { PostCard } from "@/components/PostCard";
+import { getPage, listPosts } from "@/lib/domain/content";
+import { getAllPostStats } from "@/lib/domain/likes";
+import { SEED_PAGES } from "@/lib/config/seed";
+import { isAdmin } from "@/lib/domain/auth";
+import { Markdown } from "@/components/ui/Markdown";
+import { EditLink } from "@/components/admin/EditLink";
+import { PostCard } from "@/components/public/PostCard";
 
 export const dynamic = "force-dynamic";
 

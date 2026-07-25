@@ -7,8 +7,8 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
-import { ddb, TABLE_NAME } from "./dynamo";
-import { STATS_PK } from "./likes";
+import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
+import { STATS_PK } from "@/lib/domain/likes";
 
 /**
  * Public blog comments (no login).

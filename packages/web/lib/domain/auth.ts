@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { scryptSync, timingSafeEqual, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
-import { getSecureParam, SSM_PARAMS } from "./ssm";
+import { getSecureParam, SSM_PARAMS } from "@/lib/db/ssm";
 
 /**
  * Single-admin authentication.

@@ -3,8 +3,8 @@ import {
   BedrockRuntimeClient,
   ConverseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import { getPage, listPosts } from "./content";
-import { SEED_PAGES } from "./seed";
+import { getPage, listPosts } from "@/lib/domain/content";
+import { SEED_PAGES } from "@/lib/config/seed";
 
 /**
  * Bedrock-backed site assistant. Grounded on the site's own content: the About

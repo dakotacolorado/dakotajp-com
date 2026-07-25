@@ -1,5 +1,5 @@
-import type { Comment } from "./comments";
-import { commentComparator } from "./sorting";
+import type { Comment } from "@/lib/domain/comments";
+import { commentComparator } from "@/lib/domain/sorting";
 
 /** Max visual nesting depth; replies deeper than this render flattened. */
 export const MAX_DEPTH = 5;

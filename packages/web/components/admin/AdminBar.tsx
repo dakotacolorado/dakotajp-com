@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin } from "@/lib/domain/auth";
 import { logoutAction } from "@/app/actions";
 
 /**

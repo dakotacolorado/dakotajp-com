@@ -1,7 +1,7 @@
-import type { PostMeta } from "./content";
-import type { Comment } from "./comments";
-import type { Stats } from "./likes";
-import type { SortOption } from "@/components/SortControl";
+import type { PostMeta } from "@/lib/domain/content";
+import type { Comment } from "@/lib/domain/comments";
+import type { Stats } from "@/lib/domain/likes";
+import type { SortOption } from "@/components/public/SortControl";
 
 export type PostWithStats = PostMeta & Stats;
 

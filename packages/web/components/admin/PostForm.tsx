@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createPostAction, updatePostAction } from "@/app/actions";
-import { MarkdownField } from "@/components/MarkdownField";
+import { MarkdownField } from "@/components/ui/MarkdownField";
 
 /** ISO timestamp → the `yyyy-mm-dd` a date input expects. */
 function toDateInput(iso?: string): string {

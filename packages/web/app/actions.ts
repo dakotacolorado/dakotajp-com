@@ -7,7 +7,7 @@ import {
   createSession,
   destroySession,
   isAdmin,
-} from "@/lib/auth";
+} from "@/lib/domain/auth";
 import {
   savePage,
   createPost,
@@ -15,10 +15,10 @@ import {
   deletePost,
   rollbackToVersion,
   type EntityType,
-} from "@/lib/content";
-import { addComment, deleteComment } from "@/lib/comments";
-import { togglePostLike, toggleCommentLike } from "@/lib/likes";
-import { slugify } from "@/lib/slug";
+} from "@/lib/domain/content";
+import { addComment, deleteComment } from "@/lib/domain/comments";
+import { togglePostLike, toggleCommentLike } from "@/lib/domain/likes";
+import { slugify } from "@/lib/util/slug";
 
 type State = { error?: string } | undefined;
 

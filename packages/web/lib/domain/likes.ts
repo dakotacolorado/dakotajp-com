@@ -7,8 +7,8 @@ import {
   QueryCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { ddb, TABLE_NAME } from "./dynamo";
-import { getSecureParam, SSM_PARAMS } from "./ssm";
+import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
+import { getSecureParam, SSM_PARAMS } from "@/lib/db/ssm";
 
 /**
  * Anonymous likes on posts and comments. No reader login.

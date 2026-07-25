@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
-import { getPage } from "@/lib/content";
-import { SEED_PAGES } from "@/lib/seed";
-import { PageEditor } from "@/components/PageEditor";
-import { VersionHistory } from "@/components/VersionHistory";
+import { isAdmin } from "@/lib/domain/auth";
+import { getPage } from "@/lib/domain/content";
+import { SEED_PAGES } from "@/lib/config/seed";
+import { PageEditor } from "@/components/admin/PageEditor";
+import { VersionHistory } from "@/components/admin/VersionHistory";
 
 export const dynamic = "force-dynamic";
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import type { PostMeta } from "@/lib/content";
-import type { Stats } from "@/lib/likes";
-import { formatDate } from "@/lib/date";
+import type { PostMeta } from "@/lib/domain/content";
+import type { Stats } from "@/lib/domain/likes";
+import { formatDate } from "@/lib/util/date";
 
 /**
  * One post in a list. Shared by the home page and the blog index so there is a

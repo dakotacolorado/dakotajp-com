@@ -1,5 +1,5 @@
-import { listVersions, type EntityType } from "@/lib/content";
-import { RestoreButton } from "@/components/RestoreButton";
+import { listVersions, type EntityType } from "@/lib/domain/content";
+import { RestoreButton } from "@/components/admin/RestoreButton";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {

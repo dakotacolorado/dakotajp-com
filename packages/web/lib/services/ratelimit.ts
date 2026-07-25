@@ -1,6 +1,6 @@
 import "server-only";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { ddb, TABLE_NAME } from "./dynamo";
+import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
 
 /**
  * Global fixed-window rate limiter backed by DynamoDB, so the cap holds across

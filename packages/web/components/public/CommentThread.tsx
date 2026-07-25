@@ -1,9 +1,9 @@
-import type { CommentNode } from "@/lib/comment-tree";
-import { MAX_DEPTH } from "@/lib/comment-tree";
-import { formatDate } from "@/lib/date";
-import { LikeButton } from "@/components/LikeButton";
-import { DeleteCommentButton } from "@/components/DeleteCommentButton";
-import { ReplyForm } from "@/components/ReplyForm";
+import type { CommentNode } from "@/lib/domain/comment-tree";
+import { MAX_DEPTH } from "@/lib/domain/comment-tree";
+import { formatDate } from "@/lib/util/date";
+import { LikeButton } from "@/components/public/LikeButton";
+import { DeleteCommentButton } from "@/components/admin/DeleteCommentButton";
+import { ReplyForm } from "@/components/public/ReplyForm";
 
 /**
  * Renders a comment tree recursively. Nesting indents until MAX_DEPTH, after
