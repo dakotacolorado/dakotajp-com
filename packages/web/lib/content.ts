@@ -8,11 +8,32 @@ import {
   TransactWriteCommand,
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import {
+  PK,
+  bodyPk,
+  versionPk,
+  pad,
+  DERIVED_FIELDS,
+  itemToMeta,
+  type EntityType,
+} from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./dynamo";
 import { excerpt } from "./excerpt";
 import { deleteComments } from "./comments";
 import { enqueueSummary } from "./summary-queue";
 import { STATS_PK } from "./likes";
+
+// The data-model shapes and keys live in @dakotajp/core (shared with the
+// summarizer Lambda and the CDK stack); re-export the types the app consumes.
+export type {
+  EntityType,
+  Page,
+  Post,
+  PostMeta,
+  PostInput,
+  VersionSummary,
+} from "@dakotajp/core";
+import type { Page, Post, PostMeta, PostInput, VersionSummary } from "@dakotajp/core";
 
 /**
  * Content model, single-table DynamoDB, with version history.
@@ -39,22 +60,6 @@ import { STATS_PK } from "./likes";
  *
  * Pages keep their body inline: they're singletons, never listed.
  */
-
-export type EntityType = "PAGE" | "POST";
-
-const VERSION_PAD = 10;
-const pad = (n: number) => String(n).padStart(VERSION_PAD, "0");
-const versionPk = (type: EntityType, id: string) => `VERSION#${type}#${id}`;
-const bodyPk = (type: EntityType) => `${type}BODY`;
-
-/**
- * Fields *derived* from the body rather than authored — currently the AI
- * summary. They are carried across saves but never enter a version snapshot:
- * summarizing is not an edit, so it must not appear in history, and a rollback
- * should restore the body you wrote rather than a summary a model wrote about
- * some other version. `summarySourceVersion` is what makes staleness visible.
- */
-const DERIVED_FIELDS = ["summary", "summarySourceVersion"] as const;
 
 /**
  * Core write: bump the version, write the current item(s) and the snapshot
@@ -131,14 +136,6 @@ async function commitVersion(
 
 // --- version history (shared by pages and posts) ---------------------------
 
-export interface VersionSummary {
-  version: number;
-  savedAt: string;
-  restoredFrom?: number;
-  title: string;
-  preview: string;
-}
-
 /** All versions of an entity, newest first. The first entry is the current one. */
 export async function listVersions(
   type: EntityType,
@@ -184,14 +181,14 @@ export async function rollbackToVersion(
     title: snap.title,
     body: snap.body,
   };
-  if (type === "POST") {
+  if (type === PK.post) {
     content.published = snap.published ?? false;
     content.publishedAt = snap.publishedAt ?? snap.savedAt;
     content.tags = snap.tags ?? [];
   }
   return commitVersion(type, id, content, {
     restoredFrom: version,
-    splitBody: type === "POST",
+    splitBody: type === PK.post,
   });
 }
 
@@ -221,17 +218,9 @@ async function deleteVersionHistory(type: EntityType, id: string) {
 
 // --- Pages (singleton markdown documents like About and Resume) ------------
 
-export interface Page {
-  key: string;
-  title: string;
-  body: string; // markdown
-  version: number;
-  updatedAt: string;
-}
-
 export async function getPage(key: string): Promise<Page | null> {
   const res = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "PAGE", sk: key } }),
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.page, sk: key } }),
   );
   if (!res.Item) return null;
   return {
@@ -247,7 +236,7 @@ export async function savePage(
   key: string,
   input: { title: string; body: string },
 ): Promise<Page> {
-  await commitVersion("PAGE", key, {
+  await commitVersion(PK.page, key, {
     title: input.title,
     body: input.body,
   });
@@ -255,55 +244,6 @@ export async function savePage(
 }
 
 // --- Posts (blog) ----------------------------------------------------------
-
-/** Everything the list views need. Deliberately excludes the body. */
-export interface PostMeta {
-  slug: string;
-  title: string;
-  published: boolean;
-  /** Authored publish date — backdatable, and what the site sorts by. */
-  publishedAt: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-  /** Plain-text opening, derived from the body on save. Always present. */
-  excerpt: string;
-  tags: string[];
-  /** AI-generated. Absent until a summarizer has run over this post. */
-  summary?: string;
-  /** Body version `summary` was generated from; !== version means stale. */
-  summarySourceVersion?: number;
-}
-
-export interface Post extends PostMeta {
-  body: string; // markdown
-}
-
-export interface PostInput {
-  title: string;
-  body: string;
-  published: boolean;
-  publishedAt?: string;
-  tags?: string[];
-}
-
-function itemToMeta(item: Record<string, unknown>): PostMeta {
-  const createdAt = item.createdAt as string;
-  return {
-    slug: item.sk as string,
-    title: item.title as string,
-    published: Boolean(item.published),
-    // Posts written before publishedAt existed fall back to their write time.
-    publishedAt: (item.publishedAt as string) ?? createdAt,
-    createdAt,
-    updatedAt: item.updatedAt as string,
-    version: (item.version as number) ?? 1,
-    excerpt: (item.excerpt as string) ?? "",
-    tags: (item.tags as string[]) ?? [],
-    summary: item.summary as string | undefined,
-    summarySourceVersion: item.summarySourceVersion as number | undefined,
-  };
-}
 
 /** Post metadata only — no body read. This is what every list view uses. */
 export async function listPosts(opts?: {
@@ -314,7 +254,7 @@ export async function listPosts(opts?: {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": "POST" },
+      ExpressionAttributeValues: { ":pk": PK.post },
     }),
   );
   let posts = (res.Items ?? []).map(itemToMeta);
@@ -326,7 +266,7 @@ export async function listPosts(opts?: {
 /** Single-item read for when the body isn't needed (existence checks, admin). */
 export async function getPostMeta(slug: string): Promise<PostMeta | null> {
   const res = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
   );
   return res.Item ? itemToMeta(res.Item) : null;
 }
@@ -338,17 +278,17 @@ export async function getPost(slug: string): Promise<Post | null> {
       RequestItems: {
         [TABLE_NAME]: {
           Keys: [
-            { pk: "POST", sk: slug },
-            { pk: bodyPk("POST"), sk: slug },
+            { pk: PK.post, sk: slug },
+            { pk: bodyPk(PK.post), sk: slug },
           ],
         },
       },
     }),
   );
   const items = res.Responses?.[TABLE_NAME] ?? [];
-  const meta = items.find((it) => it.pk === "POST");
+  const meta = items.find((it) => it.pk === PK.post);
   if (!meta) return null;
-  const body = items.find((it) => it.pk === bodyPk("POST"))?.body;
+  const body = items.find((it) => it.pk === bodyPk(PK.post))?.body;
   return { ...itemToMeta(meta), body: (body as string) ?? "" };
 }
 
@@ -359,7 +299,7 @@ export async function createPost(
     throw new Error("A post with this slug already exists.");
   }
   await commitVersion(
-    "POST",
+    PK.post,
     input.slug,
     {
       title: input.title,
@@ -382,7 +322,7 @@ export async function updatePost(
   if (!existing) return null;
 
   await commitVersion(
-    "POST",
+    PK.post,
     slug,
     {
       title: input.title,
@@ -413,7 +353,7 @@ export async function setPostSummary(
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
-      Key: { pk: "POST", sk: slug },
+      Key: { pk: PK.post, sk: slug },
       UpdateExpression: "SET #summary = :summary, #source = :source",
       ExpressionAttributeNames: {
         "#summary": "summary",
@@ -426,12 +366,12 @@ export async function setPostSummary(
 }
 
 export async function deletePost(slug: string): Promise<void> {
-  await deleteVersionHistory("POST", slug);
+  await deleteVersionHistory(PK.post, slug);
   await deleteComments(slug);
   await ddb.send(
     new DeleteCommand({
       TableName: TABLE_NAME,
-      Key: { pk: bodyPk("POST"), sk: slug },
+      Key: { pk: bodyPk(PK.post), sk: slug },
     }),
   );
   // Drop the denormalized like/comment counters with the post.
@@ -439,6 +379,6 @@ export async function deletePost(slug: string): Promise<void> {
     new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: STATS_PK, sk: slug } }),
   );
   await ddb.send(
-    new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),
+    new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
   );
 }
