@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
-import { DakotajpSiteStack } from "../lib/dakotajp-site-stack";
-import { GithubOidcStack } from "../lib/github-oidc-stack";
+import { DakotajpSiteStack } from "./stacks/site";
+import { GithubOidcStack } from "./stacks/github-oidc";
 
 const app = new cdk.App();
 

@@ -75,7 +75,14 @@ export class DakotajpSiteStack extends cdk.Stack {
     });
 
     const summarizer = new lambdaNode.NodejsFunction(this, "Summarizer", {
-      entry: path.resolve(__dirname, "..", "lambda", "summarizer", "index.ts"),
+      entry: path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "lambda",
+        "summarizer",
+        "index.ts",
+      ),
       handler: "handler",
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(60),
@@ -116,7 +123,7 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // --- Next.js site: OpenNext build -> Lambda + CloudFront + S3 ---
     const site = new Nextjs(this, "Site", {
-      nextjsPath: path.resolve(__dirname, "..", "..", "web"), // packages/web (the Next.js app)
+      nextjsPath: path.resolve(__dirname, "..", "..", "..", "web"), // packages/web (the Next.js app)
       environment: {
         TABLE_NAME: table.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,

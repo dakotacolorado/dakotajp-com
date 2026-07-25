@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "cdk-app": "bin/app.ts"
+    "cdk-app": "src/main.ts"
   },
   "scripts": {
     "synth": "cdk synth",
