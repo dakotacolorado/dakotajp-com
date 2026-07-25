@@ -10,10 +10,10 @@ import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Nextjs } from "cdk-nextjs-standalone";
+import { TABLE_NAME } from "@dakotajp/core";
 
 const DOMAIN_NAME = "dakotajp.com";
 const WWW_DOMAIN = `www.${DOMAIN_NAME}`;
-const TABLE_NAME = "dakotajp-site";
 
 // Bedrock model for chat + summaries. Cross-region inference profile for
 // Claude Haiku 4.5; overridable via the Lambda env without a code change.

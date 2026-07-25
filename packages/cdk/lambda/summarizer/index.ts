@@ -8,6 +8,12 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import {
+  TABLE_NAME,
+  PK,
+  SUMMARY_FIELD,
+  SUMMARY_SOURCE_VERSION_FIELD,
+} from "@dakotajp/core";
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 
 /**
@@ -21,7 +27,6 @@ import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
  * retries and duplicate deliveries harmless.
  */
 
-const TABLE_NAME = process.env.TABLE_NAME!;
 const MODEL_ID = process.env.BEDROCK_MODEL_ID!;
 const region = process.env.AWS_REGION ?? "us-east-1";
 
@@ -56,18 +61,20 @@ async function summarize(title: string, body: string): Promise<string> {
 
 async function processSlug(slug: string): Promise<void> {
   const metaRes = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: "POST", sk: slug } }),
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
   );
   const meta = metaRes.Item;
   if (!meta) return; // post was deleted — nothing to do
 
   const version = (meta.version as number) ?? 1;
-  if ((meta.summarySourceVersion as number | undefined) === version) return; // current
+  if ((meta[SUMMARY_SOURCE_VERSION_FIELD] as number | undefined) === version) {
+    return; // already current
+  }
 
   const bodyRes = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
-      Key: { pk: "POSTBODY", sk: slug },
+      Key: { pk: PK.postBody, sk: slug },
     }),
   );
   const body = (bodyRes.Item?.body as string) ?? "";
@@ -78,11 +85,11 @@ async function processSlug(slug: string): Promise<void> {
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
-      Key: { pk: "POST", sk: slug },
+      Key: { pk: PK.post, sk: slug },
       UpdateExpression: "SET #summary = :summary, #source = :source",
       ExpressionAttributeNames: {
-        "#summary": "summary",
-        "#source": "summarySourceVersion",
+        "#summary": SUMMARY_FIELD,
+        "#source": SUMMARY_SOURCE_VERSION_FIELD,
       },
       ExpressionAttributeValues: { ":summary": summary, ":source": version },
       ConditionExpression: "attribute_exists(pk)",
