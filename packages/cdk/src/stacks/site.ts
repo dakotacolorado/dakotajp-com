@@ -10,7 +10,7 @@ import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Nextjs } from "cdk-nextjs-standalone";
-import { TABLE_NAME } from "@dakotajp/core";
+import { DEFAULT_TABLE_NAME } from "@dakotajp/core";
 
 const DOMAIN_NAME = "dakotajp.com";
 const WWW_DOMAIN = `www.${DOMAIN_NAME}`;
@@ -40,7 +40,7 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // --- Data: single-table DynamoDB, on-demand, retained on stack delete ---
     const table = new dynamodb.Table(this, "SiteTable", {
-      tableName: TABLE_NAME,
+      tableName: DEFAULT_TABLE_NAME,
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,

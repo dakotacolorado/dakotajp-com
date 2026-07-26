@@ -7,17 +7,18 @@ import {
   createSession,
   destroySession,
   isAdmin,
-} from "@/lib/domain/auth";
+} from "@/lib/server/auth";
+import type { EntityType } from "@dakotajp/core";
 import {
   savePage,
   createPost,
   updatePost,
   deletePost,
   rollbackToVersion,
-  type EntityType,
-} from "@/lib/domain/content";
-import { addComment, deleteComment } from "@/lib/domain/comments";
-import { togglePostLike, toggleCommentLike } from "@/lib/domain/likes";
+  addComment,
+  deleteComment,
+} from "@dakotajp/storage";
+import { togglePostLike, toggleCommentLike } from "@/lib/server/likes";
 import { enqueueSummary } from "@/lib/services/summary-queue";
 import { slugify } from "@/lib/util/slug";
 

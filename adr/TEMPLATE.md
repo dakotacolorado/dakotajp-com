@@ -2,6 +2,9 @@
 
 <Optional one line: `Implements: #123 · Related: ADR 0002`>
 
+_Authorship, date, and review live in the git history and PR, not in this
+document._
+
 ## Context
 
 The problem and the forces at play. Why a decision is needed at all. A few

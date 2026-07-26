@@ -1,4 +1,4 @@
-import { getPage } from "@/lib/domain/content";
+import { getPage } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
 import { Markdown } from "@/components/ui/Markdown";
 import { EditLink } from "@/components/admin/EditLink";

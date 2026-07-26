@@ -1,5 +1,5 @@
-import { Comment, type CommentProps } from "../../src/blog/comment";
-import { buildThread } from "../../src/blog/comment-tree";
+import { Comment, type CommentProps } from "./comment";
+import { buildThread } from "./comment-tree";
 
 const base = (over: Partial<CommentProps>): Comment =>
   Comment.from({

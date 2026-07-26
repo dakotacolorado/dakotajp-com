@@ -10,17 +10,6 @@ routine implementation the code already makes obvious.
 ## How to add one
 
 1. Copy [`TEMPLATE.md`](./TEMPLATE.md) to `ADR_<next 4-digit number>_<kebab-slug>.md`.
-2. Fill in Context, Decision, and Consequences. Keep it tight — one decision,
-   no restating the whole system.
+2. Fill in Context, Decision, and Consequences. Keep it tight — one decision per
+   record, no restating the whole system. Link related ones by number.
 3. Open it as a PR.
-
-## Conventions
-
-- **One decision per record.** Link related ones by number.
-- **Immutable once merged.** To change a decision, add a new ADR that supersedes
-  the old one; don't rewrite history. Fixing a typo is fine.
-- **No status field.** An ADR exists in the codebase only if it was approved —
-  proposals live in their PR until then, and rejected ones never land. Presence
-  is approval.
-- **Authorship, date, and review live in the git history and PR**, not the
-  document body.

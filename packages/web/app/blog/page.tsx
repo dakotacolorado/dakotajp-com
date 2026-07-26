@@ -1,6 +1,5 @@
-import { listPosts } from "@/lib/domain/content";
-import { getAllPostStats } from "@/lib/domain/likes";
-import { isAdmin } from "@/lib/domain/auth";
+import { listPosts, getAllPostStats } from "@dakotajp/storage";
+import { isAdmin } from "@/lib/server/auth";
 import { EditLink } from "@/components/admin/EditLink";
 import { PostCard } from "@/components/public/PostCard";
 import { SortControl } from "@/components/public/SortControl";
@@ -9,7 +8,7 @@ import {
   DEFAULT_POST_SORT,
   normalizePostSort,
   sortPosts,
-} from "@/lib/domain/sorting";
+} from "@/lib/sorting";
 
 export const dynamic = "force-dynamic";
 

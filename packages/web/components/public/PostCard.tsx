@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Post } from "@dakotajp/core";
-import type { Stats } from "@/lib/domain/likes";
+import type { Stats } from "@dakotajp/storage";
 import { formatDate } from "@/lib/util/date";
 
 /**

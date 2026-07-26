@@ -1,9 +1,5 @@
 import Link from "next/link";
-
-export interface SortOption {
-  value: string;
-  label: string;
-}
+import type { SortOption } from "@/lib/sorting";
 
 /**
  * Sort links that live in the URL (`?sort=`), so a sorted view is linkable and

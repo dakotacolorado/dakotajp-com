@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { DEFAULT_TABLE_NAME } from "@dakotajp/core";
 
 /**
  * Server-only DynamoDB access layer.
@@ -15,9 +16,10 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 const region = process.env.AWS_REGION ?? "us-east-1";
 
-// The table name is defined once, in the shared model (CDK injects TABLE_NAME
-// into the Lambda; the default is the name the stack creates).
-export { TABLE_NAME } from "@dakotajp/core";
+// Which table this runtime talks to. CDK injects TABLE_NAME into every function's
+// env; the fallback is the name the stack creates, so local dev hits the same
+// table without configuration. The name itself is declared once, in core.
+export const TABLE_NAME = process.env.TABLE_NAME ?? DEFAULT_TABLE_NAME;
 
 // Reuse a single client across warm Lambda invocations.
 const client = new DynamoDBClient({ region });

@@ -5,7 +5,13 @@ import {
   BatchGetCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { PK, bodyPk, itemToMeta, Post, type PostInput } from "@dakotajp/core";
+import {
+  PK,
+  bodyPk,
+  Post,
+  type PostInput,
+  type PostProps,
+} from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
 import { deleteComments } from "./comments";
 import { STATS_PK } from "./likes";
@@ -16,6 +22,32 @@ import { commitVersion, deleteVersionHistory } from "./versioning";
  * (a DynamoDB query is capped at 1 MB before projection); the detail page reads
  * both items in one BatchGet.
  */
+
+/**
+ * DynamoDB item → plain post props (metadata only — no body read), with the
+ * fallbacks older items need. Callers wrap the result in `Post`.
+ *
+ * Mapping lives here rather than in `core` because it encodes how the table
+ * stores a post (`sk` is the slug, absent attributes mean pre-migration items) —
+ * knowledge `core` deliberately doesn't carry. `Comment` and `Page` map here too.
+ */
+export function itemToMeta(item: Record<string, unknown>): PostProps {
+  const createdAt = item.createdAt as string;
+  return {
+    slug: item.sk as string,
+    title: item.title as string,
+    published: Boolean(item.published),
+    // Posts written before publishedAt existed fall back to their write time.
+    publishedAt: (item.publishedAt as string) ?? createdAt,
+    createdAt,
+    updatedAt: item.updatedAt as string,
+    version: (item.version as number) ?? 1,
+    excerpt: (item.excerpt as string) ?? "",
+    tags: (item.tags as string[]) ?? [],
+    summary: item.summary as string | undefined,
+    summarySourceVersion: item.summarySourceVersion as number | undefined,
+  };
+}
 
 /** Post metadata only — no body read. This is what every list view uses. */
 export async function listPosts(opts?: {

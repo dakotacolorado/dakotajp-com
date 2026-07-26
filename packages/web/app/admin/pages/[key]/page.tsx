@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { isAdmin } from "@/lib/domain/auth";
-import { getPage } from "@/lib/domain/content";
+import { isAdmin } from "@/lib/server/auth";
+import { getPage } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
 import { PageEditor } from "@/components/admin/PageEditor";
 import { VersionHistory } from "@/components/admin/VersionHistory";

@@ -1,4 +1,4 @@
-import { excerpt } from "../../src/blog/excerpt";
+import { excerpt } from "./excerpt";
 
 describe("excerpt", () => {
   it("strips markdown to plain prose", () => {

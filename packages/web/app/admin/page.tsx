@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "@/lib/domain/auth";
-import { listPosts } from "@/lib/domain/content";
-import { getAllPostStats } from "@/lib/domain/likes";
-import { listRecentComments, countCommentsSince } from "@/lib/domain/comments";
+import { getSession } from "@/lib/server/auth";
+import { listPosts, getAllPostStats, listRecentComments, countCommentsSince } from "@dakotajp/storage";
 import { formatDate } from "@/lib/util/date";
 import { logoutAction } from "@/app/actions";
 import { DeleteCommentButton } from "@/components/admin/DeleteCommentButton";

@@ -1,4 +1,4 @@
-import { Page, type PageProps } from "../src/page";
+import { Page, type PageProps } from "./page";
 
 describe("Page entity", () => {
   it("round-trips through toJSON / from", () => {

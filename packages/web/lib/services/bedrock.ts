@@ -3,7 +3,7 @@ import {
   BedrockRuntimeClient,
   ConverseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import { getPage, listPosts } from "@/lib/domain/content";
+import { getPage, listPosts } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
 
 /**

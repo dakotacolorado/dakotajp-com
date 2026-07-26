@@ -1,6 +1,5 @@
-import "server-only";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { ddb, TABLE_NAME } from "@dakotajp/storage";
+import { ddb, TABLE_NAME } from "./client";
 
 /**
  * Global fixed-window rate limiter backed by DynamoDB, so the cap holds across
@@ -8,6 +7,8 @@ import { ddb, TABLE_NAME } from "@dakotajp/storage";
  * one item with an atomic conditional counter; when it's full, the conditional
  * write fails and we deny. Used to keep the whole project under 1 call/sec to
  * Bedrock's chat API.
+ *
+ *   pk = "RATELIMIT#<key>"   sk = "<unix second>"   { count, ttl }
  *
  * Items self-expire via the table's `ttl` attribute.
  */

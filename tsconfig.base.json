@@ -1,0 +1,17 @@
+{
+  // Shared TypeScript policy. Every package extends this and overrides only what
+  // its runtime genuinely requires (web needs DOM + the bundler resolver, cdk
+  // needs NodeNext). Nothing here emits — `tsc` is only ever run to typecheck.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  }
+}

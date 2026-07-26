@@ -20,9 +20,8 @@ import {
 const READER_COOKIE = "rid";
 const READER_TTL_SECONDS = 365 * 24 * 60 * 60; // 1 year
 
-// Pass-through reads/stats that need no reader identity.
-export type { Stats } from "@dakotajp/storage";
-export { STATS_PK, getPostStats, getAllPostStats } from "@dakotajp/storage";
+// Only the reader-scoped half lives here. Stats reads need no identity, so
+// callers get `getPostStats` / `getAllPostStats` straight from @dakotajp/storage.
 
 async function secretKey(): Promise<Uint8Array | null> {
   const secret = await getSecureParam(SSM_PARAMS.sessionSecret);

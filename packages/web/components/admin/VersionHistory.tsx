@@ -1,4 +1,5 @@
-import { listVersions, type EntityType } from "@/lib/domain/content";
+import type { EntityType } from "@dakotajp/core";
+import { listVersions } from "@dakotajp/storage";
 import { RestoreButton } from "@/components/admin/RestoreButton";
 
 function formatDateTime(iso: string): string {

@@ -83,26 +83,3 @@ export class Post {
     return this.body !== undefined;
   }
 }
-
-/**
- * DynamoDB item → plain post props (metadata only — no body read), with the
- * same fallbacks the app has always used. Callers wrap the result in `Post`.
- * (This mapping moves to the storage layer's PostRepository once it lands.)
- */
-export function itemToMeta(item: Record<string, unknown>): PostProps {
-  const createdAt = item.createdAt as string;
-  return {
-    slug: item.sk as string,
-    title: item.title as string,
-    published: Boolean(item.published),
-    // Posts written before publishedAt existed fall back to their write time.
-    publishedAt: (item.publishedAt as string) ?? createdAt,
-    createdAt,
-    updatedAt: item.updatedAt as string,
-    version: (item.version as number) ?? 1,
-    excerpt: (item.excerpt as string) ?? "",
-    tags: (item.tags as string[]) ?? [],
-    summary: item.summary as string | undefined,
-    summarySourceVersion: item.summarySourceVersion as number | undefined,
-  };
-}

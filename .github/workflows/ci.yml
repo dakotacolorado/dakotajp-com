@@ -26,6 +26,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Every package, including the ones no build or test would otherwise
+      # typecheck (storage, lambda — esbuild and SWC strip types without checking).
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Test
         run: npm test
 

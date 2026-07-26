@@ -10,13 +10,14 @@ schema constants. Everything the site is *about*, in one place.
 type imports), and the plain-Node Lambdas. So it must stay **runtime-agnostic** —
 no `server-only`, no `next/*`, no AWS SDK. That's what lets both the web app and
 the workers share one definition of the data instead of drifting apart.
-`tst/arch.test.ts` fails the build if any `src/` file breaks that rule.
+`src/arch.test.ts` fails the build if any `src/` file breaks that rule.
 
 ## Layout
 
 ```
 src/
-  schema.ts        # DynamoDB keys/table constants (cross-cutting)
+  arch.test.ts     # the runtime-agnostic boundary, enforced
+  schema.ts        # DynamoDB key shapes + the table name (cross-cutting)
   version.ts       # VersionSummary (cross-cutting)
   page.ts          # Page entity
   blog/            # the blog sub-domain
@@ -24,11 +25,11 @@ src/
     comment.ts     # Comment entity
     comment-tree.ts# buildThread — threading "manager" + sibling comparator
     excerpt.ts     # pure service
-tst/               # tests mirror src/
 ```
 
 Grouped by sub-domain where it earns it (`blog/`); cross-cutting types stay at
-the root. Config lives in `package.json` (Jest) and `tsconfig.json`.
+the root. Tests sit next to their source as `*.test.ts`. Jest is configured once
+at the repo root; `tsconfig.json` extends the shared `tsconfig.base.json`.
 
 ## When to use it
 
@@ -50,5 +51,5 @@ Entities are classes over a plain `…Props` interface:
 - A complex operation over many of a noun is a **service/"manager"** in the same
   sub-domain (`buildThread`), pure and testable.
 
-Add a matching test under `tst/`. Never add `server-only`, `next/*`, or
-`@aws-sdk` — the arch test guards it.
+Add a matching `*.test.ts` next to the source. Never add `server-only`,
+`next/*`, or `@aws-sdk` — the arch test guards it.
