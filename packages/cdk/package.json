@@ -39,6 +39,7 @@
         "ts-jest",
         { "tsconfig": { "module": "commonjs", "moduleResolution": "node" } }
       ]
-    }
+    },
+    "reporters": ["default", "github-actions"]
   }
 }

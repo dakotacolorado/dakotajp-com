@@ -32,6 +32,8 @@ const pureProject = {
 
 const config = async () => ({
   projects: [await webProject(), pureProject],
+  // Annotate failing assertions inline in GitHub Actions (no-op on pass/local).
+  reporters: ["default", "github-actions"],
 });
 
 export default config;

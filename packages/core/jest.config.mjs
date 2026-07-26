@@ -6,6 +6,8 @@ const config = {
   transform: {
     "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.json" }],
   },
+  // Annotate failing assertions inline in GitHub Actions (no-op on pass/local).
+  reporters: ["default", "github-actions"],
 };
 
 export default config;
