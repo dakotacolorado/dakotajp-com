@@ -1,4 +1,3 @@
-import "server-only";
 import {
   GetCommand,
   QueryCommand,
@@ -7,10 +6,9 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { PK, bodyPk, itemToMeta, Post, type PostInput } from "@dakotajp/core";
-import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
-import { deleteComments } from "@/lib/domain/comments";
-import { enqueueSummary } from "@/lib/services/summary-queue";
-import { STATS_PK } from "@/lib/domain/likes";
+import { ddb, TABLE_NAME } from "./client";
+import { deleteComments } from "./comments";
+import { STATS_PK } from "./likes";
 import { commitVersion, deleteVersionHistory } from "./versioning";
 
 /**
@@ -84,7 +82,6 @@ export async function createPost(
     },
     { splitBody: true },
   );
-  await enqueueSummary(input.slug);
   return (await getPost(input.slug))!;
 }
 
@@ -107,7 +104,6 @@ export async function updatePost(
     },
     { splitBody: true },
   );
-  await enqueueSummary(slug);
   return getPost(slug);
 }
 

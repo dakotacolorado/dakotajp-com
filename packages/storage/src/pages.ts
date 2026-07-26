@@ -1,7 +1,6 @@
-import "server-only";
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { PK, Page } from "@dakotajp/core";
-import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
+import { ddb, TABLE_NAME } from "./client";
 import { commitVersion } from "./versioning";
 
 /** Pages are singleton markdown documents (About, Resume) with inline bodies. */

@@ -11,6 +11,8 @@
     "set-admin-password": "node scripts/set-admin-password.mjs"
   },
   "dependencies": {
+    "@dakotajp/core": "0.1.0",
+    "@dakotajp/storage": "0.1.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1094.0",
     "@aws-sdk/client-dynamodb": "^3.1094.0",
     "@aws-sdk/client-sqs": "^3.1094.0",

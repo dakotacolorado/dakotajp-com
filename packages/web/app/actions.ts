@@ -18,6 +18,7 @@ import {
 } from "@/lib/domain/content";
 import { addComment, deleteComment } from "@/lib/domain/comments";
 import { togglePostLike, toggleCommentLike } from "@/lib/domain/likes";
+import { enqueueSummary } from "@/lib/services/summary-queue";
 import { slugify } from "@/lib/util/slug";
 
 type State = { error?: string } | undefined;
@@ -118,6 +119,9 @@ export async function createPostAction(
   } catch {
     return { error: "A post with a similar title already exists." };
   }
+  // Kick off async AI summarization (best-effort; the storage write already
+  // committed above).
+  await enqueueSummary(slug);
   revalidatePath("/");
   revalidatePath("/blog");
   redirect(`/blog/${slug}`);
@@ -141,6 +145,7 @@ export async function updatePostAction(
     publishedAt: parsePublishedAt(String(formData.get("publishedAt") ?? "")),
     tags: parseTags(String(formData.get("tags") ?? "")),
   });
+  await enqueueSummary(slug);
   revalidatePath("/");
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);

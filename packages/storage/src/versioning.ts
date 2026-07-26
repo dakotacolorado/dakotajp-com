@@ -1,4 +1,3 @@
-import "server-only";
 import {
   GetCommand,
   QueryCommand,
@@ -15,7 +14,7 @@ import {
   type EntityType,
   type VersionSummary,
 } from "@dakotajp/core";
-import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
+import { ddb, TABLE_NAME } from "./client";
 
 /**
  * The versioning engine, shared by pages and posts.

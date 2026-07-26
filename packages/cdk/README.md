@@ -15,8 +15,10 @@ src/
   main.ts              # CDK app entry (cdk.json runs this)
   stacks/site.ts
   stacks/github-oidc.ts
-lambda/summarizer/     # Lambda handler, bundled by esbuild; imports @dakotajp/core
 ```
+
+The summarizer Lambda handler lives in **`@dakotajp/lambda`**
+(`packages/lambda/src/summarizer`); this stack bundles it with esbuild.
 
 Account `326571719118`, region `us-east-1`.
 

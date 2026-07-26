@@ -1,0 +1,31 @@
+{
+  "name": "@dakotajp/storage",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "jest --passWithNoTests"
+  },
+  "jest": {
+    "displayName": "storage",
+    "testEnvironment": "node",
+    "testMatch": ["<rootDir>/tst/**/*.test.ts"],
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json" }]
+    },
+    "reporters": ["default", "github-actions"]
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1094.0",
+    "@aws-sdk/lib-dynamodb": "^3.1094.0",
+    "@dakotajp/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5"
+  }
+}

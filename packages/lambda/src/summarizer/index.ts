@@ -1,19 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  UpdateCommand,
-} from "@aws-sdk/lib-dynamodb";
 import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import {
-  TABLE_NAME,
-  PK,
-  SUMMARY_FIELD,
-  SUMMARY_SOURCE_VERSION_FIELD,
-} from "@dakotajp/core";
+import { getPost, setPostSummary } from "@dakotajp/storage";
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 
 /**
@@ -30,7 +19,6 @@ import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 const MODEL_ID = process.env.BEDROCK_MODEL_ID!;
 const region = process.env.AWS_REGION ?? "us-east-1";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 const bedrock = new BedrockRuntimeClient({ region });
 
 const SYSTEM_PROMPT =
@@ -60,41 +48,15 @@ async function summarize(title: string, body: string): Promise<string> {
 }
 
 async function processSlug(slug: string): Promise<void> {
-  const metaRes = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
-  );
-  const meta = metaRes.Item;
-  if (!meta) return; // post was deleted — nothing to do
+  const post = await getPost(slug);
+  if (!post) return; // post was deleted — nothing to do
+  if (post.summarySourceVersion === post.version) return; // already current
 
-  const version = (meta.version as number) ?? 1;
-  if ((meta[SUMMARY_SOURCE_VERSION_FIELD] as number | undefined) === version) {
-    return; // already current
-  }
-
-  const bodyRes = await ddb.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: PK.postBody, sk: slug },
-    }),
-  );
-  const body = (bodyRes.Item?.body as string) ?? "";
+  const body = post.body ?? "";
   if (!body.trim()) return;
 
-  const summary = await summarize(meta.title as string, body);
-
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: PK.post, sk: slug },
-      UpdateExpression: "SET #summary = :summary, #source = :source",
-      ExpressionAttributeNames: {
-        "#summary": SUMMARY_FIELD,
-        "#source": SUMMARY_SOURCE_VERSION_FIELD,
-      },
-      ExpressionAttributeValues: { ":summary": summary, ":source": version },
-      ConditionExpression: "attribute_exists(pk)",
-    }),
-  );
+  const summary = await summarize(post.title, body);
+  await setPostSummary(slug, summary, post.version);
 }
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
