@@ -12,6 +12,7 @@
     "lint": "npm run lint -w @dakotajp/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "synth": "npm run synth -w @dakotajp/cdk",
     "set-admin-password": "node scripts/set-admin-password.mjs"
   },

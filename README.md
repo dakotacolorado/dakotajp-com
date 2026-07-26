@@ -34,6 +34,7 @@ Unit tests run on [Jest](https://jestjs.io) and execute on every PR (CI).
 
 ```bash
 npm test                              # everything
+npm run test:coverage                 # everything, with the coverage report
 npm test -- slug                      # filter by name
 npx jest --selectProjects core        # one package
 ```
@@ -41,7 +42,7 @@ npx jest --selectProjects core        # one package
 One config at the root (`jest.config.mjs`) defines a project per package, so
 adding a package means adding one entry there and nothing else:
 
-- **core**, **storage**, **cdk** — plain Node via `ts-jest`.
+- **core**, **storage**, **lambda**, **cdk** — plain Node via `ts-jest`.
 - **web** — app / client components via `next/jest` (jsdom + React Testing
   Library).
 - **web-lib** — the web app's non-Next code under `lib/`.
@@ -51,6 +52,18 @@ everywhere (`src/schema.ts` ↔ `src/schema.test.ts`).
 
 Jest can't test async Server Components, so rendered pages are verified by
 deploy + manual smoke, not unit tests.
+
+### Coverage
+
+CI runs `npm run test:coverage`, and **`storage` and `lambda` are held at 100%**
+— both are pure logic over a mocked AWS SDK, so an uncovered branch means a
+missing test, not an untestable runtime. Dropping below the bar fails the PR.
+Coverage is reported for `core` too, but not enforced there (its view-layer
+helpers are exercised from the web app, which this report can't see).
+
+`storage` tests swap one module: `src/__mocks__/client.ts` replaces the DynamoDB
+client, so the real repository logic — key shapes, mapping, batching — runs
+against a scripted `ddb.send` and the tests assert on the commands it received.
 
 ## Commit & deploy
 

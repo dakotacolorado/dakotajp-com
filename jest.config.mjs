@@ -7,6 +7,9 @@ import nextJest from "next/jest.js";
  * Tests are colocated with their source as `*.test.ts(x)` — one convention in
  * every package, so a new package needs a project entry here and nothing else.
  *
+ * Coverage is collected and enforced for the plain-Node packages only; see
+ * `collectCoverageFrom` at the bottom.
+ *
  * NOTE: Jest can't test async Server Components, so the `web` project covers
  * pure logic and *synchronous* client components only. Rendered pages are
  * verified by deploy + manual smoke.
@@ -55,10 +58,47 @@ export default async () => ({
   projects: [
     nodeProject("core"),
     nodeProject("storage"),
+    nodeProject("lambda"),
     cdkProject,
     await webProject(),
     webLibProject,
   ],
   // Annotate failing assertions inline in GitHub Actions (no-op on pass/local).
   reporters: ["default", "github-actions"],
+
+  /**
+   * Coverage (`npm run test:coverage`) is measured over the plain-Node packages
+   * — the ones Jest can actually exercise end to end. `web` is excluded because
+   * its async Server Components are untestable here (see the note above), and
+   * `cdk` because its "coverage" would only ever measure `cdk synth`.
+   */
+  collectCoverageFrom: [
+    "packages/{core,storage,lambda}/src/**/*.ts",
+    "!**/*.test.ts",
+    "!**/__mocks__/**",
+  ],
+  coverageDirectory: "coverage",
+  coverageReporters: ["text-summary", "text", "lcov"],
+  /**
+   * A ratchet, not an aspiration. `storage` and `lambda` are small, pure, and
+   * fully covered today, and neither has a runtime the tests can't reach — so
+   * the bar is where they already stand, and an uncovered branch fails the run
+   * instead of slipping in quietly. The way past it is a test, not a lower
+   * number. `core` is left unthresholded: it holds view-layer helpers whose
+   * coverage the web project can't contribute to from here.
+   */
+  coverageThreshold: {
+    "./packages/storage/src/": {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+    },
+    "./packages/lambda/src/": {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+    },
+  },
 });
