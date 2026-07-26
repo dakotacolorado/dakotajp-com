@@ -12,6 +12,10 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "strict": true,
+    // Nothing that compiles this code — ts-jest, esbuild, SWC — ever sees more
+    // than one file at a time, so hold the source to what single-file transpile
+    // can express. Required by ts-jest under the NodeNext module kind above.
+    "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

@@ -31,8 +31,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # With coverage, so the thresholds in jest.config.mjs actually gate a PR
+      # rather than only reporting when someone remembers to ask for them.
       - name: Test
-        run: npm test
+        run: npm run test:coverage
 
       - name: Build web
         run: npm run build
