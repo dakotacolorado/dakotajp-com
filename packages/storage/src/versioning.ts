@@ -5,18 +5,19 @@ import {
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
-  PK,
-  bodyPk,
-  versionPk,
-  pad,
   DERIVED_FIELDS,
   excerpt,
   type EntityType,
   type VersionSummary,
 } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
-
-//   pk = "VERSION#<TYPE>#<id>"   sk = "<zero-padded version>"
+import {
+  POST,
+  bodyKey,
+  currentKey,
+  versionKey,
+  versionPartition,
+} from "./keys";
 
 /**
  * Bump the version, writing the current item(s) and the snapshot in one
@@ -34,7 +35,7 @@ export async function commitVersion(
     splitBody?: boolean;
   },
 ): Promise<number> {
-  const key = { pk: type, sk: id };
+  const key = currentKey(type, id);
   const cur = await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
   const currentVersion = (cur.Item?.version as number | undefined) ?? 0;
   const nextVersion = currentVersion + 1;
@@ -57,8 +58,7 @@ export async function commitVersion(
   }
 
   const snapshotItem: Record<string, unknown> = {
-    pk: versionPk(type, id),
-    sk: pad(nextVersion),
+    ...versionKey(type, id, nextVersion),
     version: nextVersion,
     savedAt,
     ...(opts?.restoredFrom !== undefined
@@ -73,7 +73,7 @@ export async function commitVersion(
     delete currentItem.body;
     // Derived here so it cannot drift from the body — rollback included.
     currentItem.excerpt = excerpt(body);
-    bodyItem = { pk: bodyPk(type), sk: id, body };
+    bodyItem = { ...bodyKey(type, id), body };
   }
 
   await ddb.send(
@@ -99,7 +99,7 @@ export async function listVersions(
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": versionPk(type, id) },
+      ExpressionAttributeValues: { ":pk": versionPartition(type, id) },
       ScanIndexForward: false, // newest first
     }),
   );
@@ -116,7 +116,7 @@ async function getSnapshot(type: EntityType, id: string, version: number) {
   const res = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
-      Key: { pk: versionPk(type, id), sk: pad(version) },
+      Key: versionKey(type, id, version),
     }),
   );
   return res.Item ?? null;
@@ -135,14 +135,14 @@ export async function rollbackToVersion(
     title: snap.title,
     body: snap.body,
   };
-  if (type === PK.post) {
+  if (type === POST) {
     content.published = snap.published ?? false;
     content.publishedAt = snap.publishedAt ?? snap.savedAt;
     content.tags = snap.tags ?? [];
   }
   return commitVersion(type, id, content, {
     restoredFrom: version,
-    splitBody: type === PK.post,
+    splitBody: type === POST,
   });
 }
 
@@ -151,7 +151,7 @@ export async function deleteVersionHistory(type: EntityType, id: string) {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": versionPk(type, id) },
+      ExpressionAttributeValues: { ":pk": versionPartition(type, id) },
       ProjectionExpression: "pk, sk",
     }),
   );

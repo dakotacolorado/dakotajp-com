@@ -1,13 +1,6 @@
-import {
-  DEFAULT_TABLE_NAME,
-  PK,
-  bodyPk,
-  versionPk,
-  pad,
-  DERIVED_FIELDS,
-} from "./schema";
+import { DEFAULT_TABLE_NAME, DERIVED_FIELDS } from "./schema";
 
-describe("core schema (keys)", () => {
+describe("core schema", () => {
   it("declares the table name", () => {
     expect(DEFAULT_TABLE_NAME).toBe("dakotajp-site");
   });
@@ -24,26 +17,6 @@ describe("core schema (keys)", () => {
     } finally {
       delete process.env.TABLE_NAME;
     }
-  });
-
-  it("has the fixed content partition keys", () => {
-    expect(PK).toEqual({ page: "PAGE", post: "POST", postBody: "POSTBODY" });
-  });
-
-  it("builds body partition keys per entity", () => {
-    expect(bodyPk("POST")).toBe("POSTBODY");
-    expect(bodyPk("PAGE")).toBe("PAGEBODY");
-  });
-
-  it("builds version partition keys", () => {
-    expect(versionPk("POST", "hello-world")).toBe("VERSION#POST#hello-world");
-    expect(versionPk("PAGE", "about")).toBe("VERSION#PAGE#about");
-  });
-
-  it("zero-pads version numbers to a fixed, sortable width", () => {
-    expect(pad(3)).toBe("0000000003");
-    expect(pad(3)).toHaveLength(10);
-    expect(pad(1234567890)).toBe("1234567890");
   });
 
   it("declares the derived (non-versioned) fields", () => {

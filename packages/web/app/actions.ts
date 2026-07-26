@@ -214,7 +214,7 @@ export async function deleteCommentAction(
   createdAt: string,
 ): Promise<void> {
   await assertAdmin();
-  await deleteComment(slug, commentId, `${createdAt}#${commentId}`);
+  await deleteComment(slug, commentId, createdAt);
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/admin");
   revalidatePath("/blog");

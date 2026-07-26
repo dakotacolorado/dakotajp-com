@@ -185,7 +185,9 @@ describe("countCommentsSince", () => {
 });
 
 describe("deleteComment", () => {
-  const sk = "2026-01-01T00:00:00.000Z#c1";
+  // The caller passes `createdAt`; storage builds the sort key from it.
+  const createdAt = "2026-01-01T00:00:00.000Z";
+  const sk = `${createdAt}#c1`;
 
   it("tombstones a comment that has replies, keeping the node for them", async () => {
     send
@@ -194,7 +196,7 @@ describe("deleteComment", () => {
       })
       .mockResolvedValueOnce({});
 
-    await deleteComment("a-post", "c1", sk);
+    await deleteComment("a-post", "c1", createdAt);
 
     expect(command(1)).toMatchObject({
       name: "UpdateCommand",
@@ -212,7 +214,7 @@ describe("deleteComment", () => {
   it("hard-deletes a leaf and decrements commentCount atomically", async () => {
     send.mockResolvedValueOnce({ Items: [commentItem()] }).mockResolvedValueOnce({});
 
-    await deleteComment("a-post", "c1", sk);
+    await deleteComment("a-post", "c1", createdAt);
 
     const items = command(1).input.TransactItems as [
       { Delete: Record<string, unknown> },
@@ -239,7 +241,7 @@ describe("deleteComment", () => {
       .mockRejectedValueOnce(new Error("TransactionCanceledException"))
       .mockResolvedValueOnce({});
 
-    await deleteComment("a-post", "c1", sk);
+    await deleteComment("a-post", "c1", createdAt);
 
     expect(command(2)).toMatchObject({
       name: "DeleteCommand",

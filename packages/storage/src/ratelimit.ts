@@ -1,11 +1,10 @@
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./client";
+import { rateLimitKey } from "./keys";
 
 /**
  * Fixed-window rate limiter. Backed by DynamoDB so the cap holds across Lambda
  * instances; items self-expire via the table's `ttl` attribute.
- *
- *   pk = "RATELIMIT#<key>"   sk = "<unix second>"   { count, ttl }
  */
 export async function tryAcquire(key: string, limit = 1): Promise<boolean> {
   const second = Math.floor(Date.now() / 1000);
@@ -13,7 +12,7 @@ export async function tryAcquire(key: string, limit = 1): Promise<boolean> {
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
-        Key: { pk: `RATELIMIT#${key}`, sk: String(second) },
+        Key: rateLimitKey(key, second),
         UpdateExpression: "ADD #c :one SET #ttl = if_not_exists(#ttl, :ttl)",
         ExpressionAttributeNames: { "#c": "count", "#ttl": "ttl" },
         ExpressionAttributeValues: {
