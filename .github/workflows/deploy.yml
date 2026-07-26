@@ -34,6 +34,19 @@ jobs:
       - name: Install (workspaces)
         run: npm ci
 
+      # CI only runs on pull requests, so a push straight to main would
+      # otherwise deploy code that nothing checked. Build and synth aren't
+      # repeated here: `cdk deploy` runs the OpenNext build itself, so a broken
+      # build already fails the deploy.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:coverage
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
