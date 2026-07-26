@@ -2,7 +2,6 @@ jest.mock("./client");
 
 import { ddb, TABLE_NAME } from "./client";
 import {
-  STATS_PK,
   getPostStats,
   getAllPostStats,
   getReaderPostLikes,
@@ -35,7 +34,7 @@ describe("getPostStats", () => {
       name: "GetCommand",
       input: {
         TableName: TABLE_NAME,
-        Key: { pk: STATS_PK, sk: "a-post" },
+        Key: { pk: "POSTSTATS", sk: "a-post" },
         ConsistentRead: true,
       },
     });
@@ -64,7 +63,7 @@ describe("getAllPostStats", () => {
     expect(stats.get("one")).toEqual({ likes: 2, commentCount: 1 });
     expect(stats.get("two")).toEqual({ likes: 0, commentCount: 0 });
     expect(command(0).input).toMatchObject({
-      ExpressionAttributeValues: { ":pk": STATS_PK },
+      ExpressionAttributeValues: { ":pk": "POSTSTATS" },
     });
   });
 
@@ -129,7 +128,7 @@ describe("togglePostLike", () => {
       ConditionExpression: "attribute_not_exists(pk)",
     });
     expect(counter.Update).toMatchObject({
-      Key: { pk: STATS_PK, sk: "a-post" },
+      Key: { pk: "POSTSTATS", sk: "a-post" },
       UpdateExpression: "ADD #likes :d", // atomic, never read-modify-write
       ExpressionAttributeValues: { ":d": 1 },
     });

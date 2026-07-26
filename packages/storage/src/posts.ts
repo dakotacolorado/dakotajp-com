@@ -5,20 +5,18 @@ import {
   BatchGetCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import {
-  PK,
-  bodyPk,
-  Post,
-  type PostInput,
-  type PostProps,
-} from "@dakotajp/core";
+import { Post, type PostInput, type PostProps } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
 import { deleteComments } from "./comments";
-import { STATS_PK } from "./likes";
+import {
+  POST,
+  bodyKey,
+  bodyPartition,
+  currentKey,
+  currentPartition,
+  statsKey,
+} from "./keys";
 import { commitVersion, deleteVersionHistory } from "./versioning";
-
-//   pk = "POST"       sk = "<slug>"   metadata
-//   pk = "POSTBODY"   sk = "<slug>"   body
 
 /**
  * DynamoDB item → post props, metadata only. Absent attributes mean an item
@@ -50,7 +48,7 @@ export async function listPosts(opts?: {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": PK.post },
+      ExpressionAttributeValues: { ":pk": currentPartition(POST) },
     }),
   );
   let posts = (res.Items ?? []).map((it) => Post.from(itemToMeta(it)));
@@ -61,7 +59,7 @@ export async function listPosts(opts?: {
 
 export async function getPostMeta(slug: string): Promise<Post | null> {
   const res = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
+    new GetCommand({ TableName: TABLE_NAME, Key: currentKey(POST, slug) }),
   );
   return res.Item ? Post.from(itemToMeta(res.Item)) : null;
 }
@@ -72,18 +70,15 @@ export async function getPost(slug: string): Promise<Post | null> {
     new BatchGetCommand({
       RequestItems: {
         [TABLE_NAME]: {
-          Keys: [
-            { pk: PK.post, sk: slug },
-            { pk: bodyPk(PK.post), sk: slug },
-          ],
+          Keys: [currentKey(POST, slug), bodyKey(POST, slug)],
         },
       },
     }),
   );
   const items = res.Responses?.[TABLE_NAME] ?? [];
-  const meta = items.find((it) => it.pk === PK.post);
+  const meta = items.find((it) => it.pk === currentPartition(POST));
   if (!meta) return null;
-  const body = items.find((it) => it.pk === bodyPk(PK.post))?.body;
+  const body = items.find((it) => it.pk === bodyPartition(POST))?.body;
   return Post.from({ ...itemToMeta(meta), body: (body as string) ?? "" });
 }
 
@@ -94,7 +89,7 @@ export async function createPost(
     throw new Error("A post with this slug already exists.");
   }
   await commitVersion(
-    PK.post,
+    POST,
     input.slug,
     {
       title: input.title,
@@ -116,7 +111,7 @@ export async function updatePost(
   if (!existing) return null;
 
   await commitVersion(
-    PK.post,
+    POST,
     slug,
     {
       title: input.title,
@@ -142,7 +137,7 @@ export async function setPostSummary(
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
-      Key: { pk: PK.post, sk: slug },
+      Key: currentKey(POST, slug),
       UpdateExpression: "SET #summary = :summary, #source = :source",
       ExpressionAttributeNames: {
         "#summary": "summary",
@@ -155,18 +150,15 @@ export async function setPostSummary(
 }
 
 export async function deletePost(slug: string): Promise<void> {
-  await deleteVersionHistory(PK.post, slug);
+  await deleteVersionHistory(POST, slug);
   await deleteComments(slug);
   await ddb.send(
-    new DeleteCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: bodyPk(PK.post), sk: slug },
-    }),
+    new DeleteCommand({ TableName: TABLE_NAME, Key: bodyKey(POST, slug) }),
   );
   await ddb.send(
-    new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: STATS_PK, sk: slug } }),
+    new DeleteCommand({ TableName: TABLE_NAME, Key: statsKey(slug) }),
   );
   await ddb.send(
-    new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
+    new DeleteCommand({ TableName: TABLE_NAME, Key: currentKey(POST, slug) }),
   );
 }

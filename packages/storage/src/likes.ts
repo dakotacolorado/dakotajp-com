@@ -4,19 +4,20 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./client";
+import {
+  POST_LIKE_TARGET,
+  STATS_PARTITION,
+  commentKey,
+  commentLikeTarget,
+  likeKey,
+  likePartition,
+  likePrefix,
+  statsKey,
+  targetFromLikeSortKey,
+} from "./keys";
 
-//   Dedupe:     pk = "LIKE#<rid>"   sk = "<slug>#post" | "<slug>#c#<id>"
-//   Post stats: pk = "POSTSTATS"    sk = "<slug>"   { likes, commentCount }
-//   Comment:    the COMMENT item carries its own `likes` attribute
-//
-// `rid` is resolved by the caller (ADR 0001). Post likes live off the POST item
-// so a like landing mid-save isn't clobbered by commitVersion's read-then-write.
-
-export const STATS_PK = "POSTSTATS";
-const likePk = (rid: string) => `LIKE#${rid}`;
-const POST_SUFFIX = "post";
-const commentSuffix = (commentId: string) => `c#${commentId}`;
-const dedupeSk = (slug: string, suffix: string) => `${slug}#${suffix}`;
+// A comment's own `likes` attribute lives on the COMMENT item; a post's lives
+// on its POSTSTATS item. `rid` is resolved by the caller (ADR 0001).
 
 export interface Stats {
   likes: number;
@@ -29,7 +30,7 @@ export async function getPostStats(slug: string): Promise<Stats> {
   const res = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
-      Key: { pk: STATS_PK, sk: slug },
+      Key: statsKey(slug),
       ConsistentRead: true,
     }),
   );
@@ -45,7 +46,7 @@ export async function getAllPostStats(): Promise<Map<string, Stats>> {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": STATS_PK },
+      ExpressionAttributeValues: { ":pk": STATS_PARTITION },
     }),
   );
   const map = new Map<string, Stats>();
@@ -69,27 +70,25 @@ export async function getReaderPostLikes(
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
       ExpressionAttributeValues: {
-        ":pk": likePk(rid),
-        ":prefix": `${slug}#`,
+        ":pk": likePartition(rid),
+        ":prefix": likePrefix(slug),
       },
     }),
   );
-  const prefixLen = `${slug}#`.length;
   const set = new Set<string>();
-  for (const it of res.Items ?? []) set.add((it.sk as string).slice(prefixLen));
+  for (const it of res.Items ?? []) {
+    set.add(targetFromLikeSortKey(it.sk as string, slug));
+  }
   return set;
 }
 
 async function readerLiked(
   rid: string,
   slug: string,
-  suffix: string,
+  target: string,
 ): Promise<boolean> {
   const res = await ddb.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: likePk(rid), sk: dedupeSk(slug, suffix) },
-    }),
+    new GetCommand({ TableName: TABLE_NAME, Key: likeKey(rid, slug, target) }),
   );
   return Boolean(res.Item);
 }
@@ -102,7 +101,7 @@ export async function togglePostLike(
 ): Promise<{ liked: boolean; likes: number }> {
   if (!rid) return { liked: false, likes: (await getPostStats(slug)).likes };
 
-  const dedupe = { pk: likePk(rid), sk: dedupeSk(slug, POST_SUFFIX) };
+  const dedupe = likeKey(rid, slug, POST_LIKE_TARGET);
   const already = Boolean(
     (await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: dedupe })))
       .Item,
@@ -123,7 +122,7 @@ export async function togglePostLike(
               {
                 Update: {
                   TableName: TABLE_NAME,
-                  Key: { pk: STATS_PK, sk: slug },
+                  Key: statsKey(slug),
                   UpdateExpression: "ADD #likes :d",
                   ExpressionAttributeNames: { "#likes": "likes" },
                   ExpressionAttributeValues: { ":d": -1 },
@@ -141,7 +140,7 @@ export async function togglePostLike(
               {
                 Update: {
                   TableName: TABLE_NAME,
-                  Key: { pk: STATS_PK, sk: slug },
+                  Key: statsKey(slug),
                   UpdateExpression: "ADD #likes :d",
                   ExpressionAttributeNames: { "#likes": "likes" },
                   ExpressionAttributeValues: { ":d": 1 },
@@ -155,7 +154,7 @@ export async function togglePostLike(
   }
 
   return {
-    liked: await readerLiked(rid, slug, POST_SUFFIX),
+    liked: await readerLiked(rid, slug, POST_LIKE_TARGET),
     likes: (await getPostStats(slug)).likes,
   };
 }
@@ -166,17 +165,17 @@ export async function toggleCommentLike(
   commentId: string,
   createdAt: string,
 ): Promise<{ liked: boolean; likes: number }> {
-  const commentKey = { pk: `COMMENT#${slug}`, sk: `${createdAt}#${commentId}` };
+  const target = commentKey(slug, createdAt, commentId);
 
   if (!rid) {
     const c = await ddb.send(
-      new GetCommand({ TableName: TABLE_NAME, Key: commentKey }),
+      new GetCommand({ TableName: TABLE_NAME, Key: target }),
     );
     return { liked: false, likes: (c.Item?.likes as number) ?? 0 };
   }
 
-  const suffix = commentSuffix(commentId);
-  const dedupe = { pk: likePk(rid), sk: dedupeSk(slug, suffix) };
+  const suffix = commentLikeTarget(commentId);
+  const dedupe = likeKey(rid, slug, suffix);
   const already = Boolean(
     (await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: dedupe })))
       .Item,
@@ -197,7 +196,7 @@ export async function toggleCommentLike(
               {
                 Update: {
                   TableName: TABLE_NAME,
-                  Key: commentKey,
+                  Key: target,
                   UpdateExpression: "ADD #likes :d",
                   ConditionExpression: "attribute_exists(pk)",
                   ExpressionAttributeNames: { "#likes": "likes" },
@@ -216,7 +215,7 @@ export async function toggleCommentLike(
               {
                 Update: {
                   TableName: TABLE_NAME,
-                  Key: commentKey,
+                  Key: target,
                   UpdateExpression: "ADD #likes :d",
                   ConditionExpression: "attribute_exists(pk)",
                   ExpressionAttributeNames: { "#likes": "likes" },
@@ -233,7 +232,7 @@ export async function toggleCommentLike(
   const c = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
-      Key: commentKey,
+      Key: target,
       ConsistentRead: true,
     }),
   );
