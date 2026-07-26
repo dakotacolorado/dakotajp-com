@@ -83,7 +83,7 @@ Then sign in at `/admin`.
 
 ## Layout
 
-npm workspaces. Each package has its own README.
+npm workspaces.
 
 ```
 packages/
@@ -94,6 +94,7 @@ packages/
   lambda/     async worker Lambdas (the Bedrock summarizer)
   cdk/        AWS CDK app — the site stack and the GitHub OIDC stack
 adr/          architecture decision records
+scripts/      one-off operator scripts (run from the repo root)
 ```
 
 Dependencies point one way: `core` ← `storage` ← (`web`, `lambda`), with `cdk`

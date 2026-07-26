@@ -1,10 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // aws-cdk-lib and constructs are published for NodeNext resolution; the CDK
-    // toolchain expects it.
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // module/moduleResolution come from the base (NodeNext), which is what the
+    // CDK toolchain expects anyway.
     "noImplicitReturns": true,
     "strictPropertyInitialization": false,
     // ts-node runs this app in-process (see cdk.json) — inline maps give real

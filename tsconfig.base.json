@@ -5,8 +5,12 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "commonjs",
-    "moduleResolution": "node",
+    // NodeNext, not the legacy "node"/"commonjs" pair — `moduleResolution: node`
+    // is node10, deprecated and removed in TypeScript 7. These packages have no
+    // `"type": "module"`, so NodeNext still resolves and emits them as CommonJS,
+    // which is what ts-jest, esbuild, and the Lambda runtime expect.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
