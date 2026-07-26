@@ -14,7 +14,7 @@ jest.mock("cdk-nextjs-standalone", () => {
       constructor(scope: unknown, id: string) {
         super(scope, id);
         const fn = new lambda.Function(this, "ServerFn", {
-          runtime: lambda.Runtime.NODEJS_20_X,
+          runtime: lambda.Runtime.NODEJS_24_X,
           handler: "index.handler",
           code: lambda.Code.fromInline("exports.handler = async () => {};"),
         });

@@ -45,7 +45,7 @@ export class DakotajpSiteStack extends cdk.Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       // Lets rate-limit window items self-expire.
       timeToLiveAttribute: "ttl",
     });
@@ -84,7 +84,7 @@ export class DakotajpSiteStack extends cdk.Stack {
         "index.ts",
       ),
       handler: "handler",
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(60),
       // Keep Bedrock load low; also naturally bounds cost.
       reservedConcurrentExecutions: 2,
