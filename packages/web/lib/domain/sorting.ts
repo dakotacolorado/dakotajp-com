@@ -1,5 +1,4 @@
 import type { Post } from "@dakotajp/core";
-import type { Comment } from "@/lib/domain/comments";
 import type { Stats } from "@/lib/domain/likes";
 import type { SortOption } from "@/components/public/SortControl";
 
@@ -64,20 +63,5 @@ export function normalizeCommentSort(raw?: string): string {
     : DEFAULT_COMMENT_SORT;
 }
 
-/** Comparator for one level of siblings — applied recursively in a thread. */
-export function commentComparator(
-  sort: string,
-): (a: Comment, b: Comment) => number {
-  switch (sort) {
-    case "newest":
-      return (a, b) => (a.createdAt < b.createdAt ? 1 : -1);
-    case "oldest":
-      return (a, b) => (a.createdAt < b.createdAt ? -1 : 1);
-    default: // most liked; ties resolve oldest-first
-      return (a, b) => b.likes - a.likes || (a.createdAt < b.createdAt ? -1 : 1);
-  }
-}
-
-export function sortComments(comments: Comment[], sort: string): Comment[] {
-  return [...comments].sort(commentComparator(sort));
-}
+// The comment comparator / thread assembly (buildThread) moved to
+// @dakotajp/core — they're pure domain logic, not UI sort config.

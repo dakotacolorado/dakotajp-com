@@ -35,7 +35,7 @@ async function buildSystemPrompt(): Promise<string> {
   const resumeText = (resume ?? SEED_PAGES.resume).body;
   const postLines =
     posts
-      .map((p) => `- "${p.title}" (/blog/${p.slug}): ${p.summary ?? p.excerpt}`)
+      .map((p) => `- "${p.title}" (/blog/${p.slug}): ${p.blurb}`)
       .join("\n") || "(no posts yet)";
 
   return [

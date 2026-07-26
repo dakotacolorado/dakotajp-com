@@ -7,8 +7,11 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
+import { Comment } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
 import { STATS_PK } from "@/lib/domain/likes";
+
+export { Comment } from "@dakotajp/core";
 
 /**
  * Public blog comments (no login).
@@ -25,29 +28,17 @@ import { STATS_PK } from "@/lib/domain/likes";
  * comments written with those keys are indexed (see the backfill script).
  */
 
-export interface Comment {
-  id: string;
-  username: string;
-  message: string;
-  createdAt: string;
-  likes: number;
-  /** Parent comment's `id`. Absent for top-level comments. */
-  parentId?: string;
-  /** Tombstone: deleted but kept as a node because it has replies. Rendered as
-   *  "[deleted]" with the author and controls suppressed. */
-  deleted?: boolean;
-}
-
-/** A comment plus which post it belongs to — for the cross-post admin feed. */
-export interface AdminComment extends Comment {
-  slug: string;
-}
-
 const GSI = "GSI1";
 const pk = (slug: string) => `COMMENT#${slug}`;
 
-function itemToComment(item: Record<string, unknown>): Comment {
-  return {
+/**
+ * DynamoDB item → Comment entity. `slug` isn't stored on the item (it lives in
+ * the partition key), so the caller supplies it — from the query it ran, or
+ * parsed from the pk for the cross-post feed.
+ */
+function itemToComment(item: Record<string, unknown>, slug: string): Comment {
+  return Comment.from({
+    slug,
     id: item.id as string,
     username: item.username as string,
     message: item.message as string,
@@ -55,7 +46,7 @@ function itemToComment(item: Record<string, unknown>): Comment {
     likes: (item.likes as number) ?? 0,
     parentId: item.parentId as string | undefined,
     deleted: (item.deleted as boolean | undefined) || undefined,
-  };
+  });
 }
 
 /** A post's whole thread in one query. The tree is assembled in memory. */
@@ -68,7 +59,7 @@ export async function listComments(slug: string): Promise<Comment[]> {
       ScanIndexForward: true, // oldest first
     }),
   );
-  return (res.Items ?? []).map(itemToComment);
+  return (res.Items ?? []).map((it) => itemToComment(it, slug));
 }
 
 export async function addComment(
@@ -77,7 +68,8 @@ export async function addComment(
 ): Promise<Comment> {
   const createdAt = new Date().toISOString();
   const id = randomUUID();
-  const comment: Comment = {
+  // The fields stored on the item — slug lives in the pk, not as an attribute.
+  const stored = {
     id,
     username: input.username,
     message: input.message,
@@ -98,7 +90,7 @@ export async function addComment(
               sk: `${createdAt}#${id}`,
               GSI1PK: "COMMENT",
               GSI1SK: createdAt,
-              ...comment,
+              ...stored,
             },
           },
         },
@@ -114,15 +106,13 @@ export async function addComment(
       ],
     }),
   );
-  return comment;
+  return Comment.from({ slug, ...stored });
 }
 
-function toAdminComment(item: Record<string, unknown>): AdminComment {
+/** Cross-post feed item: the slug comes from the partition key. */
+function toAdminComment(item: Record<string, unknown>): Comment {
   const partition = item.pk as string; // "COMMENT#<slug>"
-  return {
-    slug: partition.slice("COMMENT#".length),
-    ...itemToComment(item),
-  };
+  return itemToComment(item, partition.slice("COMMENT#".length));
 }
 
 /**
@@ -130,7 +120,7 @@ function toAdminComment(item: Record<string, unknown>): AdminComment {
  * drop out of the moderation feed while still living in their thread — so we
  * over-fetch and filter, then trim to `limit`.
  */
-export async function listRecentComments(limit = 10): Promise<AdminComment[]> {
+export async function listRecentComments(limit = 10): Promise<Comment[]> {
   const res = await ddb.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -143,7 +133,7 @@ export async function listRecentComments(limit = 10): Promise<AdminComment[]> {
   );
   return (res.Items ?? [])
     .map(toAdminComment)
-    .filter((c) => !c.deleted)
+    .filter((c) => !c.isDeleted)
     .slice(0, limit);
 }
 

@@ -10,7 +10,7 @@ import {
   DEFAULT_COMMENT_SORT,
   normalizeCommentSort,
 } from "@/lib/domain/sorting";
-import { buildThread } from "@/lib/domain/comment-tree";
+import { buildThread } from "@dakotajp/core";
 import { Markdown } from "@/components/ui/Markdown";
 import { EditLink } from "@/components/admin/EditLink";
 import { CommentForm } from "@/components/public/CommentForm";
@@ -59,7 +59,7 @@ export default async function PostPage({
   const sort = normalizeCommentSort(rawSort);
   const thread = buildThread(comments, sort);
   // Tombstones stay in the tree as nodes but don't count as "real" comments.
-  const visibleCount = comments.filter((c) => !c.deleted).length;
+  const visibleCount = comments.filter((c) => !c.isDeleted).length;
 
   return (
     <article>

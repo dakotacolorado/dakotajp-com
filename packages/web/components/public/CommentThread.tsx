@@ -1,5 +1,4 @@
-import type { CommentNode } from "@/lib/domain/comment-tree";
-import { MAX_DEPTH } from "@/lib/domain/comment-tree";
+import { MAX_DEPTH, type CommentNode } from "@dakotajp/core";
 import { formatDate } from "@/lib/util/date";
 import { LikeButton } from "@/components/public/LikeButton";
 import { DeleteCommentButton } from "@/components/admin/DeleteCommentButton";
@@ -25,47 +24,47 @@ export function CommentThread({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      {nodes.map((node) => (
-        <div key={node.id}>
-          {node.deleted ? (
+      {nodes.map(({ comment: c, children }) => (
+        <div key={c.id}>
+          {c.isDeleted ? (
             <p className="text-sm italic text-stone-400 dark:text-stone-600">
               [deleted]
             </p>
           ) : (
             <>
               <div className="mb-1 flex items-baseline gap-2">
-                <span className="text-sm font-medium">{node.username}</span>
+                <span className="text-sm font-medium">{c.username}</span>
                 <span className="text-xs text-stone-500">
-                  {formatDate(node.createdAt)}
+                  {formatDate(c.createdAt)}
                 </span>
               </div>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700 dark:text-stone-300">
-                {node.message}
+                {c.message}
               </p>
               <div className="mt-1.5 flex items-center gap-4">
                 <LikeButton
                   kind="comment"
                   slug={slug}
-                  commentId={node.id}
-                  createdAt={node.createdAt}
-                  initialLikes={node.likes}
-                  initiallyLiked={readerLikes.has(`c#${node.id}`)}
+                  commentId={c.id}
+                  createdAt={c.createdAt}
+                  initialLikes={c.likes}
+                  initiallyLiked={readerLikes.has(`c#${c.id}`)}
                 />
                 {admin && (
                   <DeleteCommentButton
                     slug={slug}
-                    commentId={node.id}
-                    createdAt={node.createdAt}
+                    commentId={c.id}
+                    createdAt={c.createdAt}
                   />
                 )}
               </div>
               <div className="mt-1.5">
-                <ReplyForm slug={slug} parentId={node.id} />
+                <ReplyForm slug={slug} parentId={c.id} />
               </div>
             </>
           )}
 
-          {node.children.length > 0 && (
+          {children.length > 0 && (
             <div
               className={
                 depth < MAX_DEPTH
@@ -74,7 +73,7 @@ export function CommentThread({
               }
             >
               <CommentThread
-                nodes={node.children}
+                nodes={children}
                 slug={slug}
                 admin={admin}
                 readerLikes={readerLikes}
