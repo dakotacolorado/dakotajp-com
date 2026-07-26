@@ -3,7 +3,7 @@ export type {
   EntityType,
   Page,
   Post,
-  PostMeta,
+  PostProps,
   PostInput,
   VersionSummary,
 } from "@dakotajp/core";

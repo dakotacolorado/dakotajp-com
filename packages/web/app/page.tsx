@@ -21,9 +21,9 @@ export default async function HomePage() {
     listPosts({ includeDrafts: admin, limit: RECENT_COUNT }),
     getAllPostStats(),
   ]);
-  const posts = recent.map((p) => ({
-    ...p,
-    ...(stats.get(p.slug) ?? { likes: 0, commentCount: 0 }),
+  const ranked = recent.map((post) => ({
+    post,
+    stats: stats.get(post.slug) ?? { likes: 0, commentCount: 0 },
   }));
 
   return (
@@ -36,15 +36,15 @@ export default async function HomePage() {
         <Markdown>{about.body}</Markdown>
       </article>
 
-      {posts.length > 0 && (
+      {ranked.length > 0 && (
         <section className="mt-16 border-t border-stone-200 pt-8 dark:border-stone-800">
           <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
             Blog
           </h2>
 
           <div className="divide-y divide-stone-200 dark:divide-stone-800">
-            {posts.map((post) => (
-              <PostCard key={post.slug} post={post} />
+            {ranked.map((r) => (
+              <PostCard key={r.post.slug} post={r.post} stats={r.stats} />
             ))}
           </div>
 

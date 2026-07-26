@@ -6,14 +6,7 @@ import {
   BatchGetCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import {
-  PK,
-  bodyPk,
-  itemToMeta,
-  type Post,
-  type PostMeta,
-  type PostInput,
-} from "@dakotajp/core";
+import { PK, bodyPk, itemToMeta, Post, type PostInput } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "@/lib/db/dynamo";
 import { deleteComments } from "@/lib/domain/comments";
 import { enqueueSummary } from "@/lib/services/summary-queue";
@@ -30,7 +23,7 @@ import { commitVersion, deleteVersionHistory } from "./versioning";
 export async function listPosts(opts?: {
   includeDrafts?: boolean;
   limit?: number;
-}): Promise<PostMeta[]> {
+}): Promise<Post[]> {
   const res = await ddb.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -38,18 +31,18 @@ export async function listPosts(opts?: {
       ExpressionAttributeValues: { ":pk": PK.post },
     }),
   );
-  let posts = (res.Items ?? []).map(itemToMeta);
+  let posts = (res.Items ?? []).map((it) => Post.from(itemToMeta(it)));
   if (!opts?.includeDrafts) posts = posts.filter((p) => p.published);
   posts.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)); // newest first
   return opts?.limit ? posts.slice(0, opts.limit) : posts;
 }
 
 /** Single-item read for when the body isn't needed (existence checks, admin). */
-export async function getPostMeta(slug: string): Promise<PostMeta | null> {
+export async function getPostMeta(slug: string): Promise<Post | null> {
   const res = await ddb.send(
     new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
   );
-  return res.Item ? itemToMeta(res.Item) : null;
+  return res.Item ? Post.from(itemToMeta(res.Item)) : null;
 }
 
 /** Metadata + body, in one round trip. */
@@ -70,7 +63,7 @@ export async function getPost(slug: string): Promise<Post | null> {
   const meta = items.find((it) => it.pk === PK.post);
   if (!meta) return null;
   const body = items.find((it) => it.pk === bodyPk(PK.post))?.body;
-  return { ...itemToMeta(meta), body: (body as string) ?? "" };
+  return Post.from({ ...itemToMeta(meta), body: (body as string) ?? "" });
 }
 
 export async function createPost(

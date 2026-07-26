@@ -1,9 +1,14 @@
-import type { PostMeta } from "@/lib/domain/content";
+import type { Post } from "@dakotajp/core";
 import type { Comment } from "@/lib/domain/comments";
 import type { Stats } from "@/lib/domain/likes";
 import type { SortOption } from "@/components/public/SortControl";
 
-export type PostWithStats = PostMeta & Stats;
+/**
+ * A post paired with its denormalized engagement counts. Likes/comment counts
+ * live in a separate stats item, not on the Post entity, so lists carry the two
+ * side by side rather than flattening them — the entity keeps its behavior.
+ */
+export type RankedPost = { post: Post; stats: Stats };
 
 // --- posts -----------------------------------------------------------------
 
@@ -21,23 +26,22 @@ export function normalizePostSort(raw?: string): string {
     : DEFAULT_POST_SORT;
 }
 
-const byNewest = (a: PostWithStats, b: PostWithStats) =>
-  a.publishedAt < b.publishedAt ? 1 : -1;
+const byNewest = (a: RankedPost, b: RankedPost) =>
+  a.post.publishedAt < b.post.publishedAt ? 1 : -1;
 
-export function sortPosts(
-  posts: PostWithStats[],
-  sort: string,
-): PostWithStats[] {
+export function sortPosts(posts: RankedPost[], sort: string): RankedPost[] {
   const out = [...posts];
   switch (sort) {
     case "oldest":
-      out.sort((a, b) => (a.publishedAt < b.publishedAt ? -1 : 1));
+      out.sort((a, b) => (a.post.publishedAt < b.post.publishedAt ? -1 : 1));
       break;
     case "likes":
-      out.sort((a, b) => b.likes - a.likes || byNewest(a, b));
+      out.sort((a, b) => b.stats.likes - a.stats.likes || byNewest(a, b));
       break;
     case "comments":
-      out.sort((a, b) => b.commentCount - a.commentCount || byNewest(a, b));
+      out.sort(
+        (a, b) => b.stats.commentCount - a.stats.commentCount || byNewest(a, b),
+      );
       break;
     default:
       out.sort(byNewest);

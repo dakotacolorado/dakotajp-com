@@ -30,7 +30,7 @@ export async function generateMetadata({
   if (!post) return {};
   return {
     title: post.title,
-    description: post.summary ?? post.excerpt,
+    description: post.blurb,
   };
 }
 
@@ -83,7 +83,7 @@ export default async function PostPage({
         </div>
       </header>
 
-      <Markdown>{post.body}</Markdown>
+      <Markdown>{post.body ?? ""}</Markdown>
 
       <div className="mt-10 border-t border-stone-200 pt-6 dark:border-stone-800">
         <LikeButton
