@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
-    "set-admin-password": "node scripts/set-admin-password.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dakotajp/core": "0.1.0",

@@ -26,8 +26,7 @@ const nodeProject = (name, tsconfig = "<rootDir>/tsconfig.json") => ({
   modulePathIgnorePatterns: BUILD_OUTPUT,
 });
 
-// The CDK package compiles as NodeNext; Jest needs CommonJS.
-const cdkProject = nodeProject("cdk", { module: "commonjs", moduleResolution: "node" });
+const cdkProject = nodeProject("cdk");
 
 // Next's own Jest transform (SWC), plus jsdom and React Testing Library.
 const webProject = nextJest({ dir: "./packages/web" })({

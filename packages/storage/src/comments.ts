@@ -22,7 +22,8 @@ import { STATS_PK } from "./likes";
  * Comments are partitioned per post, so a cross-post feed (the admin dashboard)
  * reads the GSI: every comment also carries GSI1PK = "COMMENT" and
  * GSI1SK = createdAt, giving "newest across all posts" as one query. Only
- * comments written with those keys are indexed (see the backfill script).
+ * comments written with those keys are indexed; every existing comment was
+ * backfilled when the index landed, so `addComment` writing them is enough.
  */
 
 const GSI = "GSI1";

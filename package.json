@@ -13,9 +13,10 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "jest",
     "synth": "npm run synth -w @dakotajp/cdk",
-    "set-admin-password": "npm run set-admin-password -w @dakotajp/web"
+    "set-admin-password": "node scripts/set-admin-password.mjs"
   },
   "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.1094.0",
     "@types/jest": "^30.0.0",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.12"
