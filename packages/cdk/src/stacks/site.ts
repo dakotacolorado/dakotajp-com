@@ -45,7 +45,7 @@ export class DakotajpSiteStack extends cdk.Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       // Lets rate-limit window items self-expire.
       timeToLiveAttribute: "ttl",
     });
@@ -75,9 +75,16 @@ export class DakotajpSiteStack extends cdk.Stack {
     });
 
     const summarizer = new lambdaNode.NodejsFunction(this, "Summarizer", {
-      entry: path.resolve(__dirname, "..", "lambda", "summarizer", "index.ts"),
+      entry: path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "lambda",
+        "summarizer",
+        "index.ts",
+      ),
       handler: "handler",
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(60),
       // Keep Bedrock load low; also naturally bounds cost.
       reservedConcurrentExecutions: 2,
@@ -116,7 +123,7 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // --- Next.js site: OpenNext build -> Lambda + CloudFront + S3 ---
     const site = new Nextjs(this, "Site", {
-      nextjsPath: path.resolve(__dirname, "..", "..", "web"), // packages/web (the Next.js app)
+      nextjsPath: path.resolve(__dirname, "..", "..", "..", "web"), // packages/web (the Next.js app)
       environment: {
         TABLE_NAME: table.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,

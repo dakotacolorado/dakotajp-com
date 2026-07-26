@@ -22,6 +22,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "cdk.out"]
 }
