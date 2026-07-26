@@ -5,9 +5,9 @@ import {
   versionPk,
   pad,
   DERIVED_FIELDS,
-} from "./keys";
+} from "../src/schema";
 
-describe("core key builders", () => {
+describe("core schema (keys)", () => {
   it("resolves a single table name", () => {
     expect(TABLE_NAME).toBe("dakotajp-site");
   });

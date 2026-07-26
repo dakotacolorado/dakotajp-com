@@ -1,4 +1,4 @@
-import { itemToMeta } from "./mappers";
+import { itemToMeta } from "../../src/blog/post";
 
 describe("itemToMeta", () => {
   it("maps a full item", () => {

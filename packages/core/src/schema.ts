@@ -1,7 +1,7 @@
 /**
  * DynamoDB key shapes and entity constants — the single source of truth.
  *
- * Pure and runtime-agnostic (ADR 0001): imported by the Next server, the
+ * Pure and runtime-agnostic (see ADR 0001): imported by the Next server, the
  * summarizer Lambda, the CDK stack, and tests. No `server-only`, no `next/*`,
  * no AWS SDK clients.
  */

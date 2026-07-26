@@ -1,10 +1,10 @@
 /**
  * Plain-text excerpt derived from markdown.
  *
- * This is stored on the post's metadata item at save time rather than computed
- * at render time, because the list views deliberately never read post bodies
- * (see the key layout in `content.ts`). It is the fallback the cards show
- * until an AI-generated `summary` exists.
+ * Stored on the post's metadata item at save time rather than computed at
+ * render time, because the list views deliberately never read post bodies (see
+ * the key layout in `schema.ts`). It is the fallback the cards show until an
+ * AI-generated `summary` exists.
  */
 
 /** Strip markdown down to readable prose. Not a parser — good enough for a card. */
