@@ -1,16 +1,20 @@
-// The content domain, split by entity. Consumers import "@/lib/domain/content".
+// The content domain. Persistence lives in @dakotajp/storage (shared with the
+// Lambdas); the entity/types come from @dakotajp/core. This barrel keeps the
+// app's import path (`@/lib/domain/content`) stable.
 export type {
   EntityType,
   Page,
   Post,
-  PostMeta,
+  PostProps,
   PostInput,
   VersionSummary,
 } from "@dakotajp/core";
 
-export { listVersions, rollbackToVersion } from "./versioning";
-export { getPage, savePage } from "./pages";
 export {
+  listVersions,
+  rollbackToVersion,
+  getPage,
+  savePage,
   listPosts,
   getPostMeta,
   getPost,
@@ -18,4 +22,4 @@ export {
   updatePost,
   setPostSummary,
   deletePost,
-} from "./posts";
+} from "@dakotajp/storage";

@@ -7,9 +7,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["jest", "node"],
+    "types": ["node", "aws-lambda"],
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "tst/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

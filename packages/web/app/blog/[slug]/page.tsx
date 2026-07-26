@@ -10,7 +10,7 @@ import {
   DEFAULT_COMMENT_SORT,
   normalizeCommentSort,
 } from "@/lib/domain/sorting";
-import { buildThread } from "@/lib/domain/comment-tree";
+import { buildThread } from "@dakotajp/core";
 import { Markdown } from "@/components/ui/Markdown";
 import { EditLink } from "@/components/admin/EditLink";
 import { CommentForm } from "@/components/public/CommentForm";
@@ -30,7 +30,7 @@ export async function generateMetadata({
   if (!post) return {};
   return {
     title: post.title,
-    description: post.summary ?? post.excerpt,
+    description: post.blurb,
   };
 }
 
@@ -59,7 +59,7 @@ export default async function PostPage({
   const sort = normalizeCommentSort(rawSort);
   const thread = buildThread(comments, sort);
   // Tombstones stay in the tree as nodes but don't count as "real" comments.
-  const visibleCount = comments.filter((c) => !c.deleted).length;
+  const visibleCount = comments.filter((c) => !c.isDeleted).length;
 
   return (
     <article>
@@ -83,7 +83,7 @@ export default async function PostPage({
         </div>
       </header>
 
-      <Markdown>{post.body}</Markdown>
+      <Markdown>{post.body ?? ""}</Markdown>
 
       <div className="mt-10 border-t border-stone-200 pt-6 dark:border-stone-800">
         <LikeButton

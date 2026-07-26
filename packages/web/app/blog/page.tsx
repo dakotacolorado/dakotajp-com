@@ -28,11 +28,11 @@ export default async function BlogPage({
     listPosts({ includeDrafts: admin }),
     getAllPostStats(),
   ]);
-  const withStats = posts.map((p) => ({
-    ...p,
-    ...(stats.get(p.slug) ?? { likes: 0, commentCount: 0 }),
+  const ranked = posts.map((post) => ({
+    post,
+    stats: stats.get(post.slug) ?? { likes: 0, commentCount: 0 },
   }));
-  const sorted = sortPosts(withStats, sort);
+  const sorted = sortPosts(ranked, sort);
 
   return (
     <section>
@@ -56,8 +56,8 @@ export default async function BlogPage({
             />
           </div>
           <div className="divide-y divide-stone-200 dark:divide-stone-800">
-            {sorted.map((post) => (
-              <PostCard key={post.slug} post={post} />
+            {sorted.map((r) => (
+              <PostCard key={r.post.slug} post={r.post} stats={r.stats} />
             ))}
           </div>
         </>

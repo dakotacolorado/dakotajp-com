@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { PostMeta } from "@/lib/domain/content";
+import type { Post } from "@dakotajp/core";
 import type { Stats } from "@/lib/domain/likes";
 import { formatDate } from "@/lib/util/date";
 
@@ -14,9 +14,7 @@ import { formatDate } from "@/lib/util/date";
  * Counts are display-only here; the interactive like button lives on the post
  * page (a card is itself a link, so nesting a button in it is awkward).
  */
-export function PostCard({ post }: { post: PostMeta & Stats }) {
-  const blurb = post.summary ?? post.excerpt;
-
+export function PostCard({ post, stats }: { post: Post; stats: Stats }) {
   return (
     <article className="py-6">
       <Link href={`/blog/${post.slug}`} className="group block">
@@ -24,7 +22,7 @@ export function PostCard({ post }: { post: PostMeta & Stats }) {
           <h3 className="font-serif text-xl leading-snug text-stone-900 decoration-stone-300 underline-offset-4 group-hover:underline dark:text-stone-100 dark:decoration-stone-600">
             {post.title}
           </h3>
-          {!post.published && (
+          {post.isDraft && (
             <span className="shrink-0 rounded-sm border border-amber-500/40 px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400">
               Draft
             </span>
@@ -33,22 +31,22 @@ export function PostCard({ post }: { post: PostMeta & Stats }) {
 
         <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs uppercase tracking-[0.08em] text-stone-500 dark:text-stone-500">
           <span>{formatDate(post.publishedAt)}</span>
-          {post.likes > 0 && (
+          {stats.likes > 0 && (
             <span className="normal-case tracking-normal">
-              ♥ {post.likes}
+              ♥ {stats.likes}
             </span>
           )}
-          {post.commentCount > 0 && (
+          {stats.commentCount > 0 && (
             <span className="normal-case tracking-normal">
-              {post.commentCount}{" "}
-              {post.commentCount === 1 ? "comment" : "comments"}
+              {stats.commentCount}{" "}
+              {stats.commentCount === 1 ? "comment" : "comments"}
             </span>
           )}
         </p>
 
-        {blurb && (
+        {post.blurb && (
           <p className="mt-2.5 text-[0.94rem] leading-relaxed text-stone-600 dark:text-stone-400">
-            {blurb}
+            {post.blurb}
           </p>
         )}
 
