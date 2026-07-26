@@ -5,6 +5,9 @@ CloudFront + S3 via OpenNext, DynamoDB for content, deployed with AWS CDK.
 
 > Built on Next.js 16 — some APIs and conventions differ from earlier versions.
 
+**The rules of this codebase live in [`adr/`](./adr).** Read those first — they
+are the source of truth, and there are deliberately very few of them.
+
 ## Develop
 
 ```bash
@@ -26,7 +29,8 @@ npm run typecheck    # every package — nothing else typechecks storage/lambda
 npm test
 ```
 
-CI runs all four on every PR.
+CI runs all four plus `cdk synth` on every PR, and lint / typecheck / tests run
+again on the deploy itself.
 
 ## Tests
 
@@ -75,8 +79,9 @@ git commit -m "message"
 git push origin main
 ```
 
-GitHub Actions then builds and runs `cdk deploy` (auth via OIDC, no stored
-keys). Pull requests into `main` run build + `cdk synth` only — no deploy.
+GitHub Actions lints, typechecks, tests, then runs `cdk deploy` (auth via OIDC,
+no stored keys). Pull requests into `main` run the same checks plus a build and
+`cdk synth` — no deploy.
 
 Deploy manually instead:
 
@@ -100,9 +105,8 @@ npm workspaces.
 
 ```
 packages/
-  core/       domain model — entities, pure rules, DynamoDB key shapes.
-              Runtime-agnostic: no server-only, no next/*, no AWS SDK.
-  storage/    DynamoDB repositories over core. Shared by web and the Lambdas.
+  core/       domain model — entities and pure rules
+  storage/    DynamoDB repositories over core
   web/        the Next.js app — pages, server actions, UI components
   lambda/     async worker Lambdas (the Bedrock summarizer)
   cdk/        AWS CDK app — the site stack and the GitHub OIDC stack
@@ -110,5 +114,6 @@ adr/          architecture decision records
 scripts/      one-off operator scripts (run from the repo root)
 ```
 
-Dependencies point one way: `core` ← `storage` ← (`web`, `lambda`), with `cdk`
-depending on `core` for the table name.
+Which package may import which, and what each one is allowed to hold, is
+[ADR 0001](./adr/ADR_0001_package-boundaries.md) — enforced by
+`core/src/arch.test.ts` and `storage/src/index.test.ts`, not by convention.

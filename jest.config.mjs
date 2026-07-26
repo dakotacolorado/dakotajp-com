@@ -38,6 +38,7 @@ const webProject = nextJest({ dir: "./packages/web" })({
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testMatch: ["<rootDir>/{app,components}/**/*.test.{ts,tsx}"],
+  moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
   modulePathIgnorePatterns: BUILD_OUTPUT,
 });
 
