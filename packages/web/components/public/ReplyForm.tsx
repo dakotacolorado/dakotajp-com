@@ -34,7 +34,6 @@ export function ReplyForm({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await addCommentAction(undefined, formData);
-      // On success the page revalidates and the new reply appears; close up.
       if (res?.error) setError(res.error);
       else setOpen(false);
     });

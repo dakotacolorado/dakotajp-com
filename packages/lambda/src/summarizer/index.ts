@@ -6,14 +6,11 @@ import { getPost, setPostSummary } from "@dakotajp/storage";
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 
 /**
- * Summarizer: drains the summary queue, generates an AI summary for a post via
- * Bedrock, and writes it back to the post record. Runs async so a blog save
- * never blocks on (or fails because of) Bedrock — if this errors, SQS retries
- * and eventually parks the message in the DLQ.
+ * Summarizes a post with Bedrock and writes the result back.
  *
- * Idempotent: a job carries only the slug. We summarize the *current* body and
- * stamp its version; if the summary is already current, we skip. That makes
- * retries and duplicate deliveries harmless.
+ * Idempotent: a job carries only the slug, so it summarizes whatever the body
+ * currently is and stamps that version. Retries and duplicate deliveries are
+ * therefore harmless.
  */
 
 const MODEL_ID = process.env.BEDROCK_MODEL_ID!;
@@ -68,7 +65,7 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
       if (slug) await processSlug(slug);
     } catch (err) {
       console.error("Failed to summarize", record.body, err);
-      // Report only this message as failed so the batch's successes still ack.
+      // Per-message, so the batch's successes still ack.
       failures.push({ itemIdentifier: record.messageId });
     }
   }

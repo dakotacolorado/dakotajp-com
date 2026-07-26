@@ -5,21 +5,12 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./client";
 
-/**
- * Anonymous likes on posts and comments — the persistence half. The reader
- * identity (a signed httpOnly cookie) is a request-scoped, Next-only concern
- * that lives in the web app; every function here takes the resolved reader id
- * (`rid`) as a parameter, so storage stays runtime-agnostic.
- *
- *   Dedupe:     pk = "LIKE#<rid>"   sk = "<slug>#post" | "<slug>#c#<id>"
- *   Post stats: pk = "POSTSTATS"    sk = "<slug>"   { likes, commentCount }
- *   Comment:    the COMMENT item gets a `likes` attribute
- *
- * Counters are atomic `ADD`s, never read-modify-write, and post likes live on a
- * separate POSTSTATS item — so a like landing mid-save can't be clobbered by
- * commitVersion's read-then-write of the POST item, and a like is never an edit
- * (no version bump, no snapshot).
- */
+//   Dedupe:     pk = "LIKE#<rid>"   sk = "<slug>#post" | "<slug>#c#<id>"
+//   Post stats: pk = "POSTSTATS"    sk = "<slug>"   { likes, commentCount }
+//   Comment:    the COMMENT item carries its own `likes` attribute
+//
+// `rid` is resolved by the caller (ADR 0001). Post likes live off the POST item
+// so a like landing mid-save isn't clobbered by commitVersion's read-then-write.
 
 export const STATS_PK = "POSTSTATS";
 const likePk = (rid: string) => `LIKE#${rid}`;
@@ -67,10 +58,7 @@ export async function getAllPostStats(): Promise<Map<string, Stats>> {
   return map;
 }
 
-/**
- * Which targets on a post the current reader has liked — the suffixes "post"
- * and "c#<id>" — in one query. Used to render filled vs. empty hearts.
- */
+/** Which targets on a post this reader has liked: the suffixes "post" and "c#<id>". */
 export async function getReaderPostLikes(
   rid: string | null,
   slug: string,

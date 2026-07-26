@@ -1,7 +1,4 @@
-/**
- * Default content shown before the admin has edited a page in /admin.
- * Once a PAGE item exists in DynamoDB, that overrides these.
- */
+/** Shown until a PAGE item exists in DynamoDB, which then overrides it. */
 export const SEED_PAGES: Record<string, { title: string; body: string }> = {
   about: {
     title: "About Me",

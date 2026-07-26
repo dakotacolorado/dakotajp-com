@@ -27,8 +27,7 @@ export function LikeButton(props: Props) {
   function toggle() {
     if (pending) return;
     const nextLiked = !liked;
-    // Optimistic: reflect the click instantly.
-    setLiked(nextLiked);
+    setLiked(nextLiked); // optimistic
     setLikes((n) => Math.max(0, n + (nextLiked ? 1 : -1)));
 
     startTransition(async () => {
@@ -41,12 +40,10 @@ export function LikeButton(props: Props) {
                 props.commentId,
                 props.createdAt,
               );
-        // Reconcile with the server's authoritative values.
         setLiked(res.liked);
         setLikes(res.likes);
       } catch {
-        // Revert the optimistic change on failure.
-        setLiked(!nextLiked);
+        setLiked(!nextLiked); // revert
         setLikes((n) => Math.max(0, n + (nextLiked ? -1 : 1)));
       }
     });

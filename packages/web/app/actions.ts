@@ -29,9 +29,9 @@ async function assertAdmin() {
 }
 
 /**
- * A `<input type="date">` submits `yyyy-mm-dd`. Anchor it to midnight UTC so
- * the stored instant matches what the site renders (see `lib/date.ts`).
- * Anything unparseable falls back to now rather than poisoning the sort order.
+ * `<input type="date">` submits `yyyy-mm-dd`. Anchored to midnight UTC to match
+ * how the site renders it. Returns undefined if unparseable — the caller picks
+ * the fallback.
  */
 function parsePublishedAt(raw: string): string | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
@@ -120,8 +120,6 @@ export async function createPostAction(
   } catch {
     return { error: "A post with a similar title already exists." };
   }
-  // Kick off async AI summarization (best-effort; the storage write already
-  // committed above).
   await enqueueSummary(slug);
   revalidatePath("/");
   revalidatePath("/blog");
@@ -229,7 +227,7 @@ export async function togglePostLikeAction(
   slug: string,
 ): Promise<{ liked: boolean; likes: number }> {
   const result = await togglePostLike(slug);
-  // Counts feed the sortable lists, so refresh them too.
+  // Counts feed the sortable lists, so refresh those too.
   revalidatePath("/");
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);

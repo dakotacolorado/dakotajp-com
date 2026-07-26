@@ -3,7 +3,7 @@ import { PK, Page } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
 import { commitVersion } from "./versioning";
 
-/** Pages are singleton markdown documents (About, Resume) with inline bodies. */
+//   pk = "PAGE"   sk = "<key>"   metadata + inline body
 
 export async function getPage(key: string): Promise<Page | null> {
   const res = await ddb.send(

@@ -5,13 +5,8 @@ import { SignJWT, jwtVerify } from "jose";
 import { getSecureParam, SSM_PARAMS } from "@/lib/db/ssm";
 
 /**
- * Single-admin authentication.
- *
- *  - Password is stored ONLY as a scrypt hash in SSM (never in the repo).
- *  - A successful login mints a signed JWT (HS256) stored in an httpOnly,
- *    Secure, SameSite=Strict cookie. The signing secret also lives in SSM.
- *  - Enforcement (signature verification) happens here, server-side, in the
- *    Node runtime. Middleware only does a coarse cookie-presence redirect.
+ * Single-admin authentication. The password hash and the JWT signing secret
+ * both live in SSM; `proxy.ts` does not verify sessions, this module does.
  */
 
 export const SESSION_COOKIE = "admin_session";
@@ -20,8 +15,6 @@ const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 export interface Session {
   admin: true;
 }
-
-// --- password hashing (scrypt, no external deps) ---------------------------
 
 const SCRYPT_KEYLEN = 64;
 

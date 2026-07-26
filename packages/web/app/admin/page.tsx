@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Kept out of the component body so the render stays pure (react-hooks/purity).
+// Outside the component body to keep the render pure (react-hooks/purity).
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * DAY_MS).toISOString();
 }
@@ -29,7 +29,6 @@ export default async function AdminDashboard() {
   const published = posts.filter((p) => p.published).length;
   const drafts = posts.length - published;
 
-  // Total is the free sum of the per-post commentCount counters (from #1).
   const totalComments = [...stats.values()].reduce(
     (sum, s) => sum + s.commentCount,
     0,

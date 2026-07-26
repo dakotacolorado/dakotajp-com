@@ -15,8 +15,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Serif for the mark and headings — the one thing that makes a plain name feel
-// deliberate rather than unstyled.
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
@@ -24,8 +22,6 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  // Proper-cased even though the mark is lowercase: a lowercase browser tab or
-  // search result reads as a typo rather than a choice.
   title: {
     default: SITE.name,
     template: `%s · ${SITE.name}`,
@@ -85,8 +81,6 @@ export default function RootLayout({
               © {new Date().getFullYear()} {SITE.name}
             </span>
             <div className="flex items-center gap-x-6">
-              {/* Off-site, so a plain anchor rather than next/link. Underlined
-                  in a muted tone, matching how links read in body copy. */}
               <a
                 href={SITE.repo}
                 target="_blank"

@@ -1,10 +1,7 @@
 import Link from "next/link";
 import type { SortOption } from "@/lib/sorting";
 
-/**
- * Sort links that live in the URL (`?sort=`), so a sorted view is linkable and
- * survives a refresh. The default option links to the bare path for a clean URL.
- */
+/** Sort links held in the URL (`?sort=`). The default option links to the bare path. */
 export function SortControl({
   basePath,
   current,

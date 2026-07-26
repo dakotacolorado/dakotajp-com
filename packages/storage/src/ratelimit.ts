@@ -2,15 +2,10 @@ import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./client";
 
 /**
- * Global fixed-window rate limiter backed by DynamoDB, so the cap holds across
- * all Lambda instances (in-memory counters wouldn't). Each 1-second window is
- * one item with an atomic conditional counter; when it's full, the conditional
- * write fails and we deny. Used to keep the whole project under 1 call/sec to
- * Bedrock's chat API.
+ * Fixed-window rate limiter. Backed by DynamoDB so the cap holds across Lambda
+ * instances; items self-expire via the table's `ttl` attribute.
  *
  *   pk = "RATELIMIT#<key>"   sk = "<unix second>"   { count, ttl }
- *
- * Items self-expire via the table's `ttl` attribute.
  */
 export async function tryAcquire(key: string, limit = 1): Promise<boolean> {
   const second = Math.floor(Date.now() / 1000);

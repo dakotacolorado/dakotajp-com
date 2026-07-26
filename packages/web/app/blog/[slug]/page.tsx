@@ -57,7 +57,7 @@ export default async function PostPage({
   ]);
   const sort = normalizeCommentSort(rawSort);
   const thread = buildThread(comments, sort);
-  // Tombstones stay in the tree as nodes but don't count as "real" comments.
+  // Tombstones stay in the tree but don't count as comments.
   const visibleCount = comments.filter((c) => !c.isDeleted).length;
 
   return (

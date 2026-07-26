@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 /**
- * One-time (re-runnable) setup for admin auth.
+ * Sets the admin password hash in SSM, and the session-signing secret if it
+ * does not exist yet. Re-runnable.
  *
- * Prompts for a password (hidden), scrypt-hashes it, and writes it to SSM
- * Parameter Store as a SecureString. Also generates a random session-signing
- * secret if one doesn't exist yet.
+ *   npm run set-admin-password
  *
- * The plaintext password never touches disk, the repo, or CloudFormation.
- *
- * Usage:  npm run set-admin-password
- * (uses your local AWS credentials / default profile, region us-east-1)
+ * Uses the local AWS profile. These parameters are not managed by CDK, so a
+ * fresh environment has no admin until this runs.
  */
 import { scryptSync, randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";

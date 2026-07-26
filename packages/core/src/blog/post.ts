@@ -1,9 +1,6 @@
-/** The blog domain's "Post" noun. */
-
 /**
- * The plain, serializable shape of a post — the `Post` constructor input, what
- * `toJSON()` returns, and what crosses the RSC boundary before being rehydrated.
- * Keep it plain (strings/numbers/booleans/arrays): no `Date`s, no class instances.
+ * Crosses the RSC boundary, so every field must stay JSON-serializable —
+ * strings, numbers, booleans, arrays. No `Date`s, no class instances.
  */
 export interface PostProps {
   slug: string;
@@ -52,12 +49,10 @@ export class Post {
     Object.assign(this, props);
   }
 
-  /** Rehydrate from plain props (e.g. after crossing the RSC boundary). */
   static from(props: PostProps): Post {
     return new Post(props);
   }
 
-  /** Plain, serializable shape to hand across the server/client boundary. */
   toJSON(): PostProps {
     return { ...this } as PostProps;
   }
@@ -66,12 +61,11 @@ export class Post {
     return !this.published;
   }
 
-  /** The blurb a card shows: the AI summary if present, else the excerpt. */
+  /** The AI summary if present, else the excerpt. */
   get blurb(): string {
     return this.summary ?? this.excerpt;
   }
 
-  /** Summary written against an older body version — needs regenerating. */
   get isSummaryStale(): boolean {
     return (
       this.summary !== undefined && this.summarySourceVersion !== this.version

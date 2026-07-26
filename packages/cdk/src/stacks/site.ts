@@ -14,12 +14,10 @@ import { packageRoot } from "../package-root";
 const DOMAIN_NAME = "dakotajp.com";
 const WWW_DOMAIN = `www.${DOMAIN_NAME}`;
 
-// Bedrock model for chat + summaries. Cross-region inference profile for
-// Claude Haiku 4.5; overridable via the Lambda env without a code change.
+// Cross-region inference profile. Overridable per function via the env.
 const BEDROCK_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
-// Permission to invoke Claude on Bedrock (streaming + non-streaming), covering
-// the inference profile and the underlying foundation models it routes to.
+// Covers the inference profile and the foundation models it routes to.
 const bedrockInvokePolicy = () =>
   new iam.PolicyStatement({
     sid: "InvokeBedrockClaude",
@@ -49,11 +47,8 @@ export class DakotajpSiteStack extends cdk.Stack {
       timeToLiveAttribute: "ttl",
     });
 
-    // Cross-post comment feed for the admin dashboard. Comments are otherwise
-    // partitioned per post (COMMENT#<slug>), so there's no way to read them all
-    // by recency. One constant-partition index gives "newest N" / "since T" as a
-    // single query. A single hot partition is the standard, acceptable trade at
-    // personal-blog volume. Only comments written with GSI1PK/GSI1SK appear here.
+    // Cross-post comment feed. One constant partition, so it is a hot one —
+    // an accepted trade at personal-blog volume.
     table.addGlobalSecondaryIndex({
       indexName: "GSI1",
       partitionKey: { name: "GSI1PK", type: dynamodb.AttributeType.STRING },
@@ -62,9 +57,6 @@ export class DakotajpSiteStack extends cdk.Stack {
     });
 
     // --- Async AI summaries: queue -> summarizer Lambda -> Bedrock ---
-    // Decouples saving a post from Bedrock: a save enqueues a job and returns;
-    // if Bedrock is slow or down, SQS retries and (after 3 tries) parks the
-    // message in the DLQ instead of failing the save.
     const summaryDlq = new sqs.Queue(this, "SummaryDlq", {
       retentionPeriod: cdk.Duration.days(14),
     });
@@ -76,7 +68,7 @@ export class DakotajpSiteStack extends cdk.Stack {
     const summarizer = new NodeLambda(this, "Summarizer", {
       handlerName: "summarizer",
       timeout: cdk.Duration.seconds(60),
-      // Keep Bedrock load low; also naturally bounds cost.
+      // Bounds Bedrock load, and cost.
       reservedConcurrentExecutions: 2,
       environment: {
         TABLE_NAME: table.tableName,
@@ -126,16 +118,12 @@ export class DakotajpSiteStack extends cdk.Stack {
       },
     });
 
-    // Least-privilege: the server Lambda may read/write only this table.
     table.grantReadWriteData(site.serverFunction.lambdaFunction);
-
-    // Chat calls Bedrock directly; saving a post enqueues a summary job.
     site.serverFunction.lambdaFunction.addToRolePolicy(bedrockInvokePolicy());
     summaryQueue.grantSendMessages(site.serverFunction.lambdaFunction);
 
-    // Allow the server Lambda to read the admin auth secrets from SSM
-    // (password hash + session signing secret), created out-of-band by the
-    // `set-admin-password` script. Scoped to the /dakotajp/ path only.
+    // GOTCHA: these parameters are created out-of-band by `set-admin-password`,
+    // not by this stack. A fresh deploy has no admin until that script runs.
     site.serverFunction.lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         sid: "ReadAdminSecrets",

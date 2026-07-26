@@ -30,7 +30,7 @@ export function ChatBox() {
     setInput("");
     setPending(true);
 
-    // Placeholder assistant message we stream into.
+    // Placeholder we stream into.
     setMessages((m) => [...m, { role: "assistant", content: "" }]);
 
     try {
@@ -63,7 +63,7 @@ export function ChatBox() {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
     } catch (err) {
-      // Drop the empty placeholder and surface the error.
+      // Drop the empty placeholder.
       setMessages((m) =>
         m[m.length - 1]?.role === "assistant" && !m[m.length - 1].content
           ? m.slice(0, -1)

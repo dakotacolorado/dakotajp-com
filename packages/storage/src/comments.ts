@@ -10,30 +10,17 @@ import { Comment } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
 import { STATS_PK } from "./likes";
 
-/**
- * Public blog comments (no login).
- *
- *   pk = "COMMENT#<postSlug>"   sk = "<ISO timestamp>#<uuid>"
- *
- * Anyone may post a { username, message }. Rendering escapes output (React),
- * so stored markup is inert. Spam mitigation (rate limit / Turnstile) can be
- * layered onto addComment later without changing this shape.
- *
- * Comments are partitioned per post, so a cross-post feed (the admin dashboard)
- * reads the GSI: every comment also carries GSI1PK = "COMMENT" and
- * GSI1SK = createdAt, giving "newest across all posts" as one query. Only
- * comments written with those keys are indexed; every existing comment was
- * backfilled when the index landed, so `addComment` writing them is enough.
- */
+//   pk = "COMMENT#<slug>"   sk = "<ISO timestamp>#<uuid>"
+//   GSI1PK = "COMMENT"      GSI1SK = createdAt      cross-post feed
+//
+// GOTCHA: only comments carrying GSI1PK/GSI1SK appear in the cross-post feed.
+// A tombstoned comment has them removed, so it drops out of moderation while
+// staying in its thread.
 
 const GSI = "GSI1";
 const pk = (slug: string) => `COMMENT#${slug}`;
 
-/**
- * DynamoDB item → Comment entity. `slug` isn't stored on the item (it lives in
- * the partition key), so the caller supplies it — from the query it ran, or
- * parsed from the pk for the cross-post feed.
- */
+/** `slug` lives in the partition key, not on the item, so the caller supplies it. */
 function itemToComment(item: Record<string, unknown>, slug: string): Comment {
   return Comment.from({
     slug,
@@ -47,7 +34,7 @@ function itemToComment(item: Record<string, unknown>, slug: string): Comment {
   });
 }
 
-/** A post's whole thread in one query. The tree is assembled in memory. */
+/** A post's whole thread in one query. */
 export async function listComments(slug: string): Promise<Comment[]> {
   const res = await ddb.send(
     new QueryCommand({
@@ -66,7 +53,6 @@ export async function addComment(
 ): Promise<Comment> {
   const createdAt = new Date().toISOString();
   const id = randomUUID();
-  // The fields stored on the item — slug lives in the pk, not as an attribute.
   const stored = {
     id,
     username: input.username,
@@ -75,8 +61,7 @@ export async function addComment(
     likes: 0,
     ...(input.parentId ? { parentId: input.parentId } : {}),
   };
-  // Write the comment and bump the post's commentCount atomically, so the
-  // denormalized count the blog list sorts by can't drift from reality.
+  // One transaction, so the denormalized commentCount can't drift.
   await ddb.send(
     new TransactWriteCommand({
       TransactItems: [
@@ -107,17 +92,12 @@ export async function addComment(
   return Comment.from({ slug, ...stored });
 }
 
-/** Cross-post feed item: the slug comes from the partition key. */
 function toAdminComment(item: Record<string, unknown>): Comment {
   const partition = item.pk as string; // "COMMENT#<slug>"
   return itemToComment(item, partition.slice("COMMENT#".length));
 }
 
-/**
- * Newest comments across every post, via the GSI. Tombstoned (deleted) comments
- * drop out of the moderation feed while still living in their thread — so we
- * over-fetch and filter, then trim to `limit`.
- */
+/** Newest comments across every post. Over-fetches so filtering can still fill `limit`. */
 export async function listRecentComments(limit = 10): Promise<Comment[]> {
   const res = await ddb.send(
     new QueryCommand({
@@ -150,10 +130,8 @@ export async function countCommentsSince(sinceIso: string): Promise<number> {
 }
 
 /**
- * Delete a single comment (admin moderation). If it has replies it is
- * **tombstoned** (kept as a node so the replies aren't orphaned); a leaf is
- * hard-deleted. Keeps the post's `commentCount` in step. `sk` is
- * `` `${createdAt}#${id}` ``.
+ * Delete one comment. A comment with replies is tombstoned; a leaf is hard
+ * deleted. `sk` is `` `${createdAt}#${id}` ``.
  */
 export async function deleteComment(
   slug: string,
@@ -165,9 +143,7 @@ export async function deleteComment(
   const hasReplies = thread.some((c) => c.parentId === commentId);
 
   if (hasReplies) {
-    // Tombstone: blank the content, drop it from the moderation feed (remove
-    // its GSI keys), but leave the node so replies keep their parent. The node
-    // still counts toward commentCount.
+    // A tombstone still counts toward commentCount.
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
@@ -186,7 +162,6 @@ export async function deleteComment(
     return;
   }
 
-  // Leaf: hard delete and decrement the counter atomically.
   try {
     await ddb.send(
       new TransactWriteCommand({
@@ -213,16 +188,12 @@ export async function deleteComment(
       }),
     );
   } catch {
-    // No POSTSTATS counter (a pre-#1 comment), or already gone.
+    // No POSTSTATS counter yet, or the comment is already gone.
     await ddb.send(new DeleteCommand({ TableName: TABLE_NAME, Key: key }));
   }
 }
 
-/**
- * Delete every comment on a post. Called by `deletePost` — without it, deleting
- * a post leaves its thread behind forever, pointing at a slug that no longer
- * resolves.
- */
+/** Delete every comment on a post. */
 export async function deleteComments(slug: string): Promise<void> {
   const res = await ddb.send(
     new QueryCommand({

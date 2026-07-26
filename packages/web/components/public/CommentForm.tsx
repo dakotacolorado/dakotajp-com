@@ -10,7 +10,7 @@ export function CommentForm({ slug }: { slug: string }) {
   );
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Clear the form after a successful submit (state resolves to {} with no error).
+  // Success resolves to {} with no error.
   useEffect(() => {
     if (state && !state.error) formRef.current?.reset();
   }, [state]);

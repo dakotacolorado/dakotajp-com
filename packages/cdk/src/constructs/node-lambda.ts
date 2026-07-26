@@ -7,36 +7,19 @@ import { Construct } from "constructs";
 import { packageRoot } from "../package-root";
 
 /**
- * A Lambda whose source lives in the `@dakotajp/lambda` package.
+ * A `NodejsFunction` whose source lives in `@dakotajp/lambda`, with the house
+ * defaults for runtime, entry resolution, and bundling.
  *
- * This *is* a `NodejsFunction` — it only supplies the house defaults (runtime,
- * entry resolution, bundling) so a new worker is three lines instead of ten,
- * and so those defaults live in one place.
+ * Adding one:
  *
- * ## Adding a new Lambda
+ *     // packages/lambda/src/worker/index.ts
+ *     export async function handler(event: SQSEvent) { ... }
  *
- * 1. Create the handler in the lambda package, one directory per function:
+ *     const worker = new NodeLambda(this, "Worker", { handlerName: "worker" });
+ *     table.grantReadWriteData(worker);
+ *     worker.addEventSource(new SqsEventSource(queue));
  *
- *        packages/lambda/src/<name>/index.ts
- *
- *    exporting a function called `handler`:
- *
- *        export async function handler(event: SQSEvent): Promise<void> { ... }
- *
- * 2. Declare it in a stack, passing that same `<name>`:
- *
- *        const worker = new NodeLambda(this, "Worker", {
- *          handlerName: "worker",
- *          environment: { TABLE_NAME: table.tableName },
- *        });
- *
- * 3. Wire it up like any other function — grants, event sources, policies:
- *
- *        table.grantReadWriteData(worker);
- *        worker.addEventSource(new SqsEventSource(queue));
- *
- * `handlerName` is verified at synth time: a typo fails `cdk synth` (which CI
- * runs on every PR) with the list of handlers that do exist, rather than
+ * `handlerName` is resolved at synth, so a typo fails `cdk synth` rather than
  * deploying a function that cannot start.
  */
 
@@ -44,7 +27,6 @@ import { packageRoot } from "../package-root";
 const HANDLER_FILE = "index.ts";
 const HANDLER_EXPORT = "handler";
 
-/** One runtime for every worker, so they can't drift apart. */
 const RUNTIME = lambda.Runtime.NODEJS_24_X;
 
 const DEFAULT_TIMEOUT = cdk.Duration.seconds(30);
@@ -71,10 +53,7 @@ function resolveHandlerEntry(handlerName: string): string {
   );
 }
 
-/**
- * Everything `NodejsFunction` takes, except the three things this construct
- * owns: `entry` (derived from `handlerName`), `handler`, and `runtime`.
- */
+/** `NodejsFunction` props, minus the three this construct owns. */
 export interface NodeLambdaProps
   extends Omit<lambdaNode.NodejsFunctionProps, "entry" | "handler" | "runtime"> {
   /** Directory under `packages/lambda/src/` holding this function's `index.ts`. */
@@ -92,8 +71,8 @@ export class NodeLambda extends lambdaNode.NodejsFunction {
       runtime: RUNTIME,
       timeout: rest.timeout ?? DEFAULT_TIMEOUT,
       bundling: {
-        // Bundle the AWS SDK instead of using the runtime's built-in copy, so
-        // the deployed version is the one that was built and tested.
+        // Bundle the AWS SDK rather than use the runtime's copy, so the
+        // deployed version is the one that was built and tested.
         externalModules: [],
         ...bundling,
       },

@@ -14,8 +14,6 @@ const RECENT_COUNT = 5;
 export default async function HomePage() {
   const [page, admin] = await Promise.all([getPage("about"), isAdmin()]);
   const about = page ?? SEED_PAGES.about;
-  // Drafts appear here only for the logged-in admin, same rule as /blog.
-  // The home feed is a newest-first teaser; full sorting lives on /blog.
   const [recent, stats] = await Promise.all([
     listPosts({ includeDrafts: admin, limit: RECENT_COUNT }),
     getAllPostStats(),

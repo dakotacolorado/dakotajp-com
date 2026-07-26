@@ -7,11 +7,7 @@ export interface SortOption {
   label: string;
 }
 
-/**
- * A post paired with its denormalized engagement counts. Likes/comment counts
- * live in a separate stats item, not on the Post entity, so lists carry the two
- * side by side rather than flattening them — the entity keeps its behavior.
- */
+/** A post paired with its counters, which live on a separate item. */
 export type RankedPost = { post: Post; stats: Stats };
 
 // --- posts -----------------------------------------------------------------
@@ -67,6 +63,3 @@ export function normalizeCommentSort(raw?: string): string {
     ? (raw as string)
     : DEFAULT_COMMENT_SORT;
 }
-
-// The comment comparator / thread assembly (buildThread) moved to
-// @dakotajp/core — they're pure domain logic, not UI sort config.

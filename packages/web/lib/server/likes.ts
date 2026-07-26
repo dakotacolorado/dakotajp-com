@@ -10,18 +10,13 @@ import {
 } from "@dakotajp/storage";
 
 /**
- * Reader identity for anonymous likes — the request-scoped, Next-only half.
- *
- * Each reader gets a signed, httpOnly cookie holding a random ID; the persisted
- * like/dedupe logic lives in @dakotajp/storage and receives that id. Clearing
- * cookies mints a fresh identity — an accepted limit for anonymous likes.
+ * Reader identity for anonymous likes: a signed httpOnly cookie holding a
+ * random id, which the storage layer receives as a parameter (ADR 0001).
+ * Clearing cookies mints a fresh identity — accepted for anonymous likes.
  */
 
 const READER_COOKIE = "rid";
 const READER_TTL_SECONDS = 365 * 24 * 60 * 60; // 1 year
-
-// Only the reader-scoped half lives here. Stats reads need no identity, so
-// callers get `getPostStats` / `getAllPostStats` straight from @dakotajp/storage.
 
 async function secretKey(): Promise<Uint8Array | null> {
   const secret = await getSecureParam(SSM_PARAMS.sessionSecret);

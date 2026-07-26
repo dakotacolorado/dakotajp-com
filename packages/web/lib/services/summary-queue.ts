@@ -2,9 +2,8 @@ import "server-only";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 /**
- * Enqueue a post for async AI summarization. Best-effort by design: the queue
- * decouples saving from Bedrock, so a failure to enqueue must never fail the
- * save. Also a no-op when the queue isn't configured (e.g. local dev).
+ * Enqueue a post for async summarization. Best-effort: a failure here must
+ * never fail the save. A no-op when SUMMARY_QUEUE_URL is unset (local dev).
  */
 
 const region = process.env.AWS_REGION ?? "us-east-1";

@@ -13,10 +13,8 @@ const MODES: { id: Mode; label: string }[] = [
 ];
 
 /**
- * A markdown textarea with a live preview that renders as you type.
- *
- * The textarea is always mounted (just visually hidden in Preview mode) so its
- * value is always submitted with the form, regardless of the active view.
+ * Markdown textarea with a live preview. GOTCHA: the textarea stays mounted in
+ * Preview mode (hidden, not unmounted) so the form always submits its value.
  */
 export function MarkdownField({
   name,

@@ -16,18 +16,13 @@ import {
 } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
 
-/**
- * The versioning engine, shared by pages and posts.
- *
- * Every save writes the current item(s) and an immutable snapshot
- * (`VERSION#<TYPE>#<id>`) in one transaction, so they never diverge. Rollback
- * restores an old snapshot's content as a new (highest) version.
- */
+//   pk = "VERSION#<TYPE>#<id>"   sk = "<zero-padded version>"
 
 /**
- * Bump the version, write the current item(s) and the snapshot atomically.
- * `content` holds the mutable versioned fields; `extraCurrent` holds fields that
- * live only on the current item; `splitBody` stores the body in its own item.
+ * Bump the version, writing the current item(s) and the snapshot in one
+ * transaction. `content` holds the versioned fields; `extraCurrent` holds
+ * fields that live only on the current item; `splitBody` stores the body
+ * separately. Returns the new version number.
  */
 export async function commitVersion(
   type: EntityType,
@@ -55,7 +50,8 @@ export async function commitVersion(
     updatedAt: savedAt,
   };
 
-  // A stale summary stays visible (and flagged) until the summarizer catches up.
+  // Carried forward, not versioned — a stale summary stays visible until the
+  // summarizer catches up.
   for (const field of DERIVED_FIELDS) {
     if (cur.Item?.[field] !== undefined) currentItem[field] = cur.Item[field];
   }
@@ -75,9 +71,7 @@ export async function commitVersion(
   if (opts?.splitBody) {
     const body = String(content.body ?? "");
     delete currentItem.body;
-    // Computed here, in the one place every write funnels through, so the
-    // excerpt can never drift from the body it describes — including on
-    // rollback, which recomputes it from the restored body.
+    // Derived here so it cannot drift from the body — rollback included.
     currentItem.excerpt = excerpt(body);
     bodyItem = { pk: bodyPk(type), sk: id, body };
   }
@@ -96,7 +90,7 @@ export async function commitVersion(
   return nextVersion;
 }
 
-/** All versions of an entity, newest first. The first entry is the current one. */
+/** All versions, newest first. The first entry is the current one. */
 export async function listVersions(
   type: EntityType,
   id: string,

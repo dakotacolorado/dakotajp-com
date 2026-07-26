@@ -1,7 +1,5 @@
 {
   // ts-jest runs lib/ tests in CommonJS; the app config targets the bundler.
-  // NodeNext (not the deprecated node10 "node") emits CJS here because the
-  // package has no `"type": "module"`.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "nodenext",

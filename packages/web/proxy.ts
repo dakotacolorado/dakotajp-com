@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Coarse UX redirect only: if there's no session cookie, bounce unauthenticated
- * visitors away from /admin to the login page. This is NOT the security
- * boundary — every admin page and mutation independently verifies the signed
- * session server-side (see lib/server/auth.ts). Signature verification isn't done here
- * because middleware runs on the Edge runtime without access to the SSM secret.
+ * GOTCHA: this is NOT the security boundary. It checks only that a cookie
+ * exists — any value gets through. It cannot verify the signature because it
+ * runs on the Edge runtime with no access to the SSM secret. Every admin page
+ * and mutation must verify the session itself (lib/server/auth.ts).
  */
 const SESSION_COOKIE = "admin_session";
 

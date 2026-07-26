@@ -3,17 +3,7 @@ import type { Post } from "@dakotajp/core";
 import type { Stats } from "@dakotajp/storage";
 import { formatDate } from "@/lib/util/date";
 
-/**
- * One post in a list. Shared by the home page and the blog index so there is a
- * single thing to restyle when AI summaries land.
- *
- * The blurb prefers the generated `summary` and falls back to the `excerpt`
- * derived from the body on save — so cards look right today and upgrade
- * silently later, with no change here.
- *
- * Counts are display-only here; the interactive like button lives on the post
- * page (a card is itself a link, so nesting a button in it is awkward).
- */
+/** One post in a list. Counts are display-only — the card is itself a link. */
 export function PostCard({ post, stats }: { post: Post; stats: Stats }) {
   return (
     <article className="py-6">
