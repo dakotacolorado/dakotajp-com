@@ -1,17 +1,19 @@
 /**
  * DynamoDB key shapes and entity constants — the single source of truth.
  *
- * Pure and runtime-agnostic (see ADR 0001): imported by the Next server, the
- * summarizer Lambda, the CDK stack, and tests. No `server-only`, no `next/*`,
- * no AWS SDK clients.
+ * Pure and runtime-agnostic: imported by the Next server, the summarizer
+ * Lambda, the CDK stack, and tests. No `server-only`, no `next/*`, no AWS SDK
+ * clients.
  */
 
 /**
- * The table name. CDK injects `TABLE_NAME` into the Lambda's env; the default is
- * the name the CDK stack creates, so dev and prod resolve to the same table and
- * the name lives in exactly one place.
+ * The name of the table the CDK stack creates. A constant, never read from the
+ * environment: `cdk` uses it to *name* the table, so resolving it from
+ * `process.env` here would let a stray `TABLE_NAME` in a deploy environment
+ * rename production. Runtime resolution (env override, for pointing a runtime at
+ * a different table) belongs to the storage layer — see `storage/src/client.ts`.
  */
-export const TABLE_NAME = process.env.TABLE_NAME ?? "dakotajp-site";
+export const DEFAULT_TABLE_NAME = "dakotajp-site";
 
 export type EntityType = "PAGE" | "POST";
 

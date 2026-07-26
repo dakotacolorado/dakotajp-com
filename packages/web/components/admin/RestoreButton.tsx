@@ -1,7 +1,7 @@
 "use client";
 
 import { rollbackAction } from "@/app/actions";
-import type { EntityType } from "@/lib/domain/content";
+import type { EntityType } from "@dakotajp/core";
 
 export function RestoreButton({
   type,

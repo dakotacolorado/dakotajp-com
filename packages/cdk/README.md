@@ -34,9 +34,12 @@ Account `326571719118`, region `us-east-1`.
 ## Build & test
 
 ```bash
-npm test                       # from repo root (runs every workspace)
-npm test -w @dakotajp/cdk      # just this package's stack tests
+npm test                          # from repo root (every package)
+npx jest --selectProjects cdk     # just this package's stack tests
 ```
+
+Jest is configured once at the repo root (`jest.config.mjs`); stack tests live
+next to their stack as `*.test.ts`.
 
 ## Synth / deploy
 

@@ -17,29 +17,37 @@ Uses AWS credentials for the `us-east-1` account (default profile) to read the
 
 ## Build & check
 
-Before committing, make sure the app builds, lints, and tests pass:
+Before committing, make sure the app builds, lints, typechecks, and tests pass:
 
 ```bash
 npm run build
 npm run lint
+npm run typecheck    # every package — nothing else typechecks storage/lambda
 npm test
 ```
+
+CI runs all four on every PR.
 
 ## Tests
 
 Unit tests run on [Jest](https://jestjs.io) and execute on every PR (CI).
 
 ```bash
-npm test              # run everything
-npm test -- slug      # filter by name
+npm test                              # everything
+npm test -- slug                      # filter by name
+npx jest --selectProjects core        # one package
 ```
 
-Two Jest projects run together (`jest.config.mjs`):
+One config at the root (`jest.config.mjs`) defines a project per package, so
+adding a package means adding one entry there and nothing else:
 
-- **pure** — non-Next code via `ts-jest`. Tests live next to their source as
-  `*.test.ts` (e.g. `lib/excerpt.test.ts`).
+- **core**, **storage**, **cdk** — plain Node via `ts-jest`.
 - **web** — app / client components via `next/jest` (jsdom + React Testing
-  Library), as `*.test.tsx` under `app/` or `components/`.
+  Library).
+- **web-lib** — the web app's non-Next code under `lib/`.
+
+**Tests are colocated with their source as `*.test.ts(x)`** — one convention
+everywhere (`src/schema.ts` ↔ `src/schema.test.ts`).
 
 Jest can't test async Server Components, so rendered pages are verified by
 deploy + manual smoke, not unit tests.
@@ -60,7 +68,7 @@ keys). Pull requests into `main` run build + `cdk synth` only — no deploy.
 Deploy manually instead:
 
 ```bash
-cd infra && npx cdk deploy DakotajpSiteStack
+cd packages/cdk && npx cdk deploy DakotajpSiteStack
 ```
 
 ## Admin
@@ -75,10 +83,18 @@ Then sign in at `/admin`.
 
 ## Layout
 
+npm workspaces. Each package has its own README.
+
 ```
-app/         pages, admin, and server actions
-components/   UI components
-lib/          server-only data + auth modules
-infra/        AWS CDK app
-docs/         runbooks
+packages/
+  core/       domain model — entities, pure rules, DynamoDB key shapes.
+              Runtime-agnostic: no server-only, no next/*, no AWS SDK.
+  storage/    DynamoDB repositories over core. Shared by web and the Lambdas.
+  web/        the Next.js app — pages, server actions, UI components
+  lambda/     async worker Lambdas (the Bedrock summarizer)
+  cdk/        AWS CDK app — the site stack and the GitHub OIDC stack
+adr/          architecture decision records
 ```
+
+Dependencies point one way: `core` ← `storage` ← (`web`, `lambda`), with `cdk`
+depending on `core` for the table name.

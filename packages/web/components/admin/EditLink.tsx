@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isAdmin } from "@/lib/domain/auth";
+import { isAdmin } from "@/lib/server/auth";
 
 /** An inline "Edit" link that only renders for the logged-in admin. */
 export async function EditLink({ href }: { href: string }) {

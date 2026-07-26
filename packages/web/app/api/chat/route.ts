@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { streamChat, type ChatMessage } from "@/lib/services/bedrock";
-import { tryAcquire } from "@/lib/services/ratelimit";
+import { tryAcquire } from "@dakotajp/storage";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

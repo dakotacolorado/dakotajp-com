@@ -1,14 +1,7 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["node", "aws-lambda"],
-    "noEmit": true
+    "types": ["jest", "node", "aws-lambda"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

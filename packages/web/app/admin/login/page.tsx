@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/domain/auth";
+import { isAdmin } from "@/lib/server/auth";
 import { LoginForm } from "@/components/admin/LoginForm";
 
 export const dynamic = "force-dynamic";

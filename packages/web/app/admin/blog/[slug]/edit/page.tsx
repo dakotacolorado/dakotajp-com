@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { isAdmin } from "@/lib/domain/auth";
-import { getPost } from "@/lib/domain/content";
+import { isAdmin } from "@/lib/server/auth";
+import { getPost } from "@dakotajp/storage";
 import { PostForm } from "@/components/admin/PostForm";
 import { VersionHistory } from "@/components/admin/VersionHistory";
 

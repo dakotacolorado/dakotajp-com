@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
  * Coarse UX redirect only: if there's no session cookie, bounce unauthenticated
  * visitors away from /admin to the login page. This is NOT the security
  * boundary — every admin page and mutation independently verifies the signed
- * session server-side (see lib/auth.ts). Signature verification isn't done here
+ * session server-side (see lib/server/auth.ts). Signature verification isn't done here
  * because middleware runs on the Edge runtime without access to the SSM secret.
  */
 const SESSION_COOKIE = "admin_session";

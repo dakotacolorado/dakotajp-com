@@ -1,6 +1,11 @@
 import type { Post } from "@dakotajp/core";
-import type { Stats } from "@/lib/domain/likes";
-import type { SortOption } from "@/components/public/SortControl";
+import type { Stats } from "@dakotajp/storage";
+
+/** One choice in a `?sort=` control: the URL value and its visible label. */
+export interface SortOption {
+  value: string;
+  label: string;
+}
 
 /**
  * A post paired with its denormalized engagement counts. Likes/comment counts

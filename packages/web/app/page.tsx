@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { getPage, listPosts } from "@/lib/domain/content";
-import { getAllPostStats } from "@/lib/domain/likes";
+import { getPage, listPosts, getAllPostStats } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
-import { isAdmin } from "@/lib/domain/auth";
+import { isAdmin } from "@/lib/server/auth";
 import { Markdown } from "@/components/ui/Markdown";
 import { EditLink } from "@/components/admin/EditLink";
 import { PostCard } from "@/components/public/PostCard";

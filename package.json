@@ -10,8 +10,14 @@
     "dev": "npm run dev -w @dakotajp/web",
     "build": "npm run build -w @dakotajp/web",
     "lint": "npm run lint -w @dakotajp/web",
-    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "jest",
     "synth": "npm run synth -w @dakotajp/cdk",
     "set-admin-password": "npm run set-admin-password -w @dakotajp/web"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12"
   }
 }

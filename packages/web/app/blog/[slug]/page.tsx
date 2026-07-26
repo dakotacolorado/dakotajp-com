@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPost } from "@/lib/domain/content";
-import { listComments } from "@/lib/domain/comments";
-import { getPostStats, getReaderPostLikes } from "@/lib/domain/likes";
-import { isAdmin } from "@/lib/domain/auth";
+import { getPost, listComments, getPostStats } from "@dakotajp/storage";
+import { getReaderPostLikes } from "@/lib/server/likes";
+import { isAdmin } from "@/lib/server/auth";
 import { formatDate } from "@/lib/util/date";
 import {
   COMMENT_SORT_OPTIONS,
   DEFAULT_COMMENT_SORT,
   normalizeCommentSort,
-} from "@/lib/domain/sorting";
+} from "@/lib/sorting";
 import { buildThread } from "@dakotajp/core";
 import { Markdown } from "@/components/ui/Markdown";
 import { EditLink } from "@/components/admin/EditLink";
