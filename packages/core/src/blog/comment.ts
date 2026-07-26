@@ -1,5 +1,3 @@
-/** The blog domain's "Comment" noun — anonymous, optionally a reply. */
-
 export interface CommentProps {
   /** The post this comment belongs to. */
   slug: string;
@@ -10,8 +8,7 @@ export interface CommentProps {
   likes: number;
   /** Parent comment's `id`. Absent for top-level comments. */
   parentId?: string;
-  /** Tombstone: deleted but kept as a node because it has replies. Rendered as
-   *  "[deleted]" with the author and controls suppressed. */
+  /** Tombstone: deleted, but kept as a node so its replies aren't orphaned. */
   deleted?: boolean;
 }
 
@@ -41,7 +38,6 @@ export class Comment {
     return this.parentId !== undefined;
   }
 
-  /** Tombstoned: content blanked, kept only to anchor its replies. */
   get isDeleted(): boolean {
     return this.deleted === true;
   }

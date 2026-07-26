@@ -7,13 +7,11 @@ import { getPage, listPosts } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
 
 /**
- * Bedrock-backed site assistant. Grounded on the site's own content: the About
- * and Resume pages (small, included in full) plus every published post's
- * AI-generated summary (compact, so the prompt stays cheap as posts accumulate).
+ * Bedrock-backed site assistant, grounded on the About and Resume pages in full
+ * plus each published post's blurb.
  */
 
 const region = process.env.AWS_REGION ?? "us-east-1";
-// Overridable so the Haiku version can change without a code deploy.
 export const CHAT_MODEL_ID =
   process.env.BEDROCK_MODEL_ID ?? "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 

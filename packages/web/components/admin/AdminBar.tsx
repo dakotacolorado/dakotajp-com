@@ -2,10 +2,7 @@ import Link from "next/link";
 import { isAdmin } from "@/lib/server/auth";
 import { logoutAction } from "@/app/actions";
 
-/**
- * Shown on every page ONLY when the visitor holds a valid admin session.
- * This is what gives the "admin mode follows me across the site" behavior.
- */
+/** Shown on every page, only for a valid admin session. */
 export async function AdminBar() {
   if (!(await isAdmin())) return null;
 

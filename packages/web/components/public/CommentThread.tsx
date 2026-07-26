@@ -4,11 +4,7 @@ import { LikeButton } from "@/components/public/LikeButton";
 import { DeleteCommentButton } from "@/components/admin/DeleteCommentButton";
 import { ReplyForm } from "@/components/public/ReplyForm";
 
-/**
- * Renders a comment tree recursively. Nesting indents until MAX_DEPTH, after
- * which deeper replies render flat (no further indent) so a phone thread stays
- * readable. Tombstoned nodes show "[deleted]" but keep their replies.
- */
+/** Renders a comment tree. Indents until MAX_DEPTH, then renders flat. */
 export function CommentThread({
   nodes,
   slug,

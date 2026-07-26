@@ -6,15 +6,9 @@ const GITHUB_OWNER = "dakotacolorado";
 const GITHUB_REPO = "dakotajp-com";
 
 /**
- * Trust between GitHub Actions and this AWS account via OIDC.
- *
- * Creates:
- *  - An IAM OIDC identity provider for token.actions.githubusercontent.com
- *  - A deploy role that ONLY workflows on the `main` branch of this repo may
- *    assume (short-lived, no stored access keys).
- *
- * The role's only permission is to assume the CDK bootstrap roles, which is all
- * `cdk deploy` needs — least privilege, no broad admin rights in CI.
+ * OIDC trust for GitHub Actions: a deploy role assumable only by workflows on
+ * this repo's `main` branch, whose one permission is to assume the CDK
+ * bootstrap roles.
  */
 export class GithubOidcStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
@@ -29,11 +23,9 @@ export class GithubOidcStack extends cdk.Stack {
       roleName: "github-actions-dakotajp-deploy",
       description: "Assumed by GitHub Actions (main branch) to run cdk deploy",
       maxSessionDuration: cdk.Duration.hours(1),
-      // IAM requires GitHub OIDC roles to be scoped by `sub` (or
-      // job_workflow_ref). This account emits `sub` with numeric database IDs
-      // appended (e.g. repo:owner@123/repo@456:ref:...), so we match with
-      // StringLike and wildcard only the IDs — the owner/repo names and the
-      // main-branch ref stay pinned.
+      // GOTCHA: this account emits `sub` with numeric database IDs appended
+      // (repo:owner@123/repo@456:ref:...), so StringLike wildcards those IDs.
+      // Owner, repo, and the main-branch ref stay pinned.
       assumedBy: new iam.OpenIdConnectPrincipal(provider, {
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
@@ -44,7 +36,6 @@ export class GithubOidcStack extends cdk.Stack {
       }),
     });
 
-    // cdk deploy works by assuming the CDK bootstrap roles; grant only that.
     deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: "AssumeCdkBootstrapRoles",

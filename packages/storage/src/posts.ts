@@ -17,19 +17,12 @@ import { deleteComments } from "./comments";
 import { STATS_PK } from "./likes";
 import { commitVersion, deleteVersionHistory } from "./versioning";
 
-/**
- * Posts. Body lives in its own `POSTBODY` item so list views never read bodies
- * (a DynamoDB query is capped at 1 MB before projection); the detail page reads
- * both items in one BatchGet.
- */
+//   pk = "POST"       sk = "<slug>"   metadata
+//   pk = "POSTBODY"   sk = "<slug>"   body
 
 /**
- * DynamoDB item → plain post props (metadata only — no body read), with the
- * fallbacks older items need. Callers wrap the result in `Post`.
- *
- * Mapping lives here rather than in `core` because it encodes how the table
- * stores a post (`sk` is the slug, absent attributes mean pre-migration items) —
- * knowledge `core` deliberately doesn't carry. `Comment` and `Page` map here too.
+ * DynamoDB item → post props, metadata only. Absent attributes mean an item
+ * written before that field existed, hence the fallbacks.
  */
 export function itemToMeta(item: Record<string, unknown>): PostProps {
   const createdAt = item.createdAt as string;
@@ -37,7 +30,6 @@ export function itemToMeta(item: Record<string, unknown>): PostProps {
     slug: item.sk as string,
     title: item.title as string,
     published: Boolean(item.published),
-    // Posts written before publishedAt existed fall back to their write time.
     publishedAt: (item.publishedAt as string) ?? createdAt,
     createdAt,
     updatedAt: item.updatedAt as string,
@@ -49,7 +41,7 @@ export function itemToMeta(item: Record<string, unknown>): PostProps {
   };
 }
 
-/** Post metadata only — no body read. This is what every list view uses. */
+/** Post metadata only — no body read. */
 export async function listPosts(opts?: {
   includeDrafts?: boolean;
   limit?: number;
@@ -67,7 +59,6 @@ export async function listPosts(opts?: {
   return opts?.limit ? posts.slice(0, opts.limit) : posts;
 }
 
-/** Single-item read for when the body isn't needed (existence checks, admin). */
 export async function getPostMeta(slug: string): Promise<Post | null> {
   const res = await ddb.send(
     new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.post, sk: slug } }),
@@ -140,10 +131,8 @@ export async function updatePost(
 }
 
 /**
- * Attach an AI-generated summary to a post. Deliberately not a `commitVersion`
- * call: summarizing is not an edit, so it must not bump the version or write a
- * snapshot. Stamping the source version lets a later job find posts whose
- * summary has fallen behind their body and refresh just those.
+ * Attach an AI summary. Not a `commitVersion` call — summarizing is not an
+ * edit, so it must not bump the version or write a snapshot.
  */
 export async function setPostSummary(
   slug: string,
@@ -174,7 +163,6 @@ export async function deletePost(slug: string): Promise<void> {
       Key: { pk: bodyPk(PK.post), sk: slug },
     }),
   );
-  // Drop the denormalized like/comment counters with the post.
   await ddb.send(
     new DeleteCommand({ TableName: TABLE_NAME, Key: { pk: STATS_PK, sk: slug } }),
   );

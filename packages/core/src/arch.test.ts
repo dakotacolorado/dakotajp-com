@@ -1,13 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/**
- * The core boundary, enforced. `@dakotajp/core` is bundled into the
- * Next server, client components, and the plain-Node summarizer Lambda, so it
- * must never import `server-only`, `next/*`, or an AWS SDK client. This test
- * fails if any source file under `src/` does — a boundary that relies on memory
- * erodes.
- */
+/** ADR 0001, enforced: core imports nothing runtime-bound. */
 const FORBIDDEN = [/(["'])server-only\1/, /(["'])next(\/[^"']*)?\1/, /@aws-sdk\//];
 
 const SRC = __dirname;
@@ -30,8 +24,8 @@ describe("core boundary", () => {
   });
 
   it.each(files)("%s imports nothing runtime-bound", (file) => {
-    // Strip comments so documentation that *names* the forbidden modules
-    // doesn't trip the guard — only real code counts.
+    // Strip comments so prose that names a forbidden module doesn't trip the
+    // guard — only real code counts.
     const code = readFileSync(file, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\/\/.*$/gm, "");

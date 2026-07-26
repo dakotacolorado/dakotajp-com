@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Global 1 TPS cap on the Bedrock chat API.
+  // GOTCHA: one global window, not per-user — a busy visitor 429s everyone.
   if (!(await tryAcquire("bedrock-chat", 1))) {
     return NextResponse.json(
       { error: "The assistant is busy right now — please try again in a moment." },

@@ -1,24 +1,15 @@
 # ADR NNNN — <short title>
 
-<Optional one line: `Implements: #123 · Related: ADR 0002`>
-
-_Authorship, date, and review live in the git history and PR, not in this
-document._
+<!-- Title ≤ 60 chars. Optional one line: `Related: ADR 0002` -->
 
 ## Context
 
-The problem and the forces at play. Why a decision is needed at all. A few
-sentences, not an essay.
+<!-- ≤ 500 chars. The forces that make a decision necessary. Not history. -->
 
 ## Decision
 
-The choice, stated as a rule someone can follow. Say what is now required and
-what is now disallowed.
+<!-- ≤ 800 chars. The rule. What is now required, and what is now disallowed. -->
 
 ## Consequences
 
-What this buys, and what it costs — honestly. A few bullets each.
-
-## Alternatives considered
-
-_(Optional.)_ What was rejected, and the one reason why.
+<!-- ≤ 500 chars. What this buys and what it costs. Both, honestly. -->

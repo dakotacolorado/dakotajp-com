@@ -3,12 +3,7 @@ import {
   GetParameterCommand,
 } from "@aws-sdk/client-ssm";
 
-/**
- * Reads SecureString parameters from SSM Parameter Store, with a short in-memory
- * cache so warm Lambda invocations don't re-fetch on every request.
- *
- * Server-only. Never import into a Client Component.
- */
+/** SecureString reads from SSM, cached in memory across warm invocations. */
 
 const region = process.env.AWS_REGION ?? "us-east-1";
 const client = new SSMClient({ region });
@@ -31,8 +26,8 @@ export async function getSecureParam(name: string): Promise<string | null> {
     }
     return value;
   } catch (err) {
-    // Missing parameter (e.g. before the admin password is set) — treat as null
-    // rather than throwing, so public pages keep working.
+    // Absent before `set-admin-password` runs. Null, not a throw, so public
+    // pages keep working.
     if (
       err &&
       typeof err === "object" &&

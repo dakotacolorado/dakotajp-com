@@ -1,7 +1,4 @@
-/**
- * A summary of one version in an entity's history (for the admin timeline).
- * Versioning is cross-cutting — both pages and posts are versioned.
- */
+/** One entry in an entity's version history. */
 export interface VersionSummary {
   version: number;
   savedAt: string;
