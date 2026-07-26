@@ -1,4 +1,3 @@
-import * as path from "node:path";
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
@@ -6,11 +5,11 @@ import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sqs from "aws-cdk-lib/aws-sqs";
-import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
-import * as lambda from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Nextjs } from "cdk-nextjs-standalone";
 import { DEFAULT_TABLE_NAME } from "@dakotajp/core";
+import { NodeLambda } from "../constructs/node-lambda";
+import { packageRoot } from "../package-root";
 
 const DOMAIN_NAME = "dakotajp.com";
 const WWW_DOMAIN = `www.${DOMAIN_NAME}`;
@@ -74,19 +73,8 @@ export class DakotajpSiteStack extends cdk.Stack {
       deadLetterQueue: { queue: summaryDlq, maxReceiveCount: 3 },
     });
 
-    const summarizer = new lambdaNode.NodejsFunction(this, "Summarizer", {
-      entry: path.resolve(
-        __dirname,
-        "..",
-        "..",
-        "..",
-        "lambda",
-        "src",
-        "summarizer",
-        "index.ts",
-      ),
-      handler: "handler",
-      runtime: lambda.Runtime.NODEJS_24_X,
+    const summarizer = new NodeLambda(this, "Summarizer", {
+      handlerName: "summarizer",
       timeout: cdk.Duration.seconds(60),
       // Keep Bedrock load low; also naturally bounds cost.
       reservedConcurrentExecutions: 2,
@@ -94,7 +82,6 @@ export class DakotajpSiteStack extends cdk.Stack {
         TABLE_NAME: table.tableName,
         BEDROCK_MODEL_ID,
       },
-      bundling: { externalModules: [] }, // bundle the SDK (incl. bedrock-runtime)
     });
     summarizer.addEventSource(
       new SqsEventSource(summaryQueue, {
@@ -125,7 +112,7 @@ export class DakotajpSiteStack extends cdk.Stack {
 
     // --- Next.js site: OpenNext build -> Lambda + CloudFront + S3 ---
     const site = new Nextjs(this, "Site", {
-      nextjsPath: path.resolve(__dirname, "..", "..", "..", "web"), // packages/web (the Next.js app)
+      nextjsPath: packageRoot("@dakotajp/web"), // packages/web (the Next.js app)
       environment: {
         TABLE_NAME: table.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,
