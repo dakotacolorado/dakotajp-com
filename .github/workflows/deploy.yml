@@ -13,16 +13,26 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  id-token: write # required to request the OIDC token
   contents: read
 
-env:
-  AWS_REGION: us-east-1
-  AWS_DEPLOY_ROLE: arn:aws:iam::326571719118:role/github-actions-dakotajp-deploy
-
 jobs:
+  # CI only runs on pull requests, so a push straight to main would otherwise
+  # deploy code that nothing checked. Calling the same reusable workflow a PR
+  # calls means "passed CI" and "passed the deploy gate" cannot diverge.
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   deploy:
+    needs: checks
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required to request the OIDC token
+      contents: read
+    # Scoped to this job on purpose. At workflow level these leaked into the
+    # check steps and changed a coverage number — see the note in checks.yml.
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEPLOY_ROLE: arn:aws:iam::326571719118:role/github-actions-dakotajp-deploy
     steps:
       - uses: actions/checkout@v4
 
@@ -34,19 +44,8 @@ jobs:
       - name: Install (workspaces)
         run: npm ci
 
-      # CI only runs on pull requests, so a push straight to main would
-      # otherwise deploy code that nothing checked. Build and synth aren't
-      # repeated here: `cdk deploy` runs the OpenNext build itself, so a broken
-      # build already fails the deploy.
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test:coverage
-
+      # Build and synth aren't run here: `cdk deploy` runs the OpenNext build
+      # itself, so a broken build already fails the deploy.
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:

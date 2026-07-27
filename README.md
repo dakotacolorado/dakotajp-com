@@ -32,8 +32,10 @@ npm run typecheck    # every package — nothing else typechecks storage/lambda
 npm test
 ```
 
-CI runs all four plus `cdk synth` on every PR, and lint / typecheck / tests run
-again on the deploy itself.
+Lint, typecheck and tests-with-coverage live in one reusable workflow
+(`.github/workflows/checks.yml`) that both CI and Deploy call, so a green PR
+means the deploy gate will pass on the same commit. Build and `cdk synth` run
+on PRs only — a deploy gets them from `cdk deploy`, which builds the app itself.
 
 ## Tests
 
