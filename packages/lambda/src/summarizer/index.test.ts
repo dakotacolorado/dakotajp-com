@@ -205,3 +205,37 @@ describe("summarizer handler", () => {
     await expect(handler(event())).resolves.toEqual({ batchItemFailures: [] });
   });
 });
+
+/**
+ * `region` is resolved at import time from the ambient environment, so which
+ * side of the `??` runs depends on whether AWS_REGION happens to be set — and
+ * it is in the deploy workflow but not in CI. Pinning both sides here keeps the
+ * lambda's coverage the same number in every environment.
+ */
+describe("region resolution", () => {
+  const loadWith = (region: string | undefined): unknown => {
+    const previous = process.env.AWS_REGION;
+    if (region === undefined) delete process.env.AWS_REGION;
+    else process.env.AWS_REGION = region;
+
+    let constructedWith: unknown;
+    jest.isolateModules(() => {
+      const sdk = require("@aws-sdk/client-bedrock-runtime");
+      require("./index");
+      constructedWith = (sdk.BedrockRuntimeClient as jest.Mock).mock.calls[0][0];
+    });
+
+    if (previous === undefined) delete process.env.AWS_REGION;
+    else process.env.AWS_REGION = previous;
+    return constructedWith;
+  };
+
+  it("uses AWS_REGION when the runtime supplies one", () => {
+    // Lambda always sets it, so this is the path that actually runs in prod.
+    expect(loadWith("eu-west-1")).toEqual({ region: "eu-west-1" });
+  });
+
+  it("falls back to us-east-1 when it doesn't", () => {
+    expect(loadWith(undefined)).toEqual({ region: "us-east-1" });
+  });
+});
