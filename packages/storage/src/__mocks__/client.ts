@@ -6,10 +6,12 @@
  * command construction, mapping, chunking — against a scripted `send`. Tests
  * assert on the commands it received.
  *
- * The table name deliberately differs from the production default so a test
+ * The table names deliberately differ from the production defaults so a test
  * asserting on `TableName` proves the code reads the module's value rather than
- * hard-coding one.
+ * hard-coding one — and so a repository writing to the wrong one of the two is
+ * visible in the assertion.
  */
 export const TABLE_NAME = "test-table";
+export const RATE_LIMIT_TABLE_NAME = "test-ratelimit-table";
 
 export const ddb = { send: jest.fn() };

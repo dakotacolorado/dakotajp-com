@@ -93,6 +93,7 @@ describe("physical resource names", () => {
       "AWS::CertificateManager::Certificate DomainName=dakotajp.com",
       "AWS::CertificateManager::Certificate DomainName=www.dakotajp.com",
       "AWS::DynamoDB::Table IndexName=GSI1",
+      "AWS::DynamoDB::Table TableName=dakotajp-ratelimit",
       "AWS::DynamoDB::Table TableName=dakotajp-site",
     ]);
   });

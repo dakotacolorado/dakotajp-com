@@ -36,13 +36,28 @@ const template = (() => {
 })();
 
 describe("DakotajpSiteStack", () => {
-  it("creates the single-table store with a GSI and TTL", () => {
-    template.hasResourceProperties("AWS::DynamoDB::Table", {
-      TableName: "dakotajp-site",
-      TimeToLiveSpecification: { AttributeName: "ttl", Enabled: true },
-      GlobalSecondaryIndexes: Match.arrayWith([
-        Match.objectLike({ IndexName: "GSI1" }),
-      ]),
+  it("creates the content store with a GSI, retained and backed up", () => {
+    template.hasResource("AWS::DynamoDB::Table", {
+      DeletionPolicy: "Retain",
+      Properties: Match.objectLike({
+        TableName: "dakotajp-site",
+        PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true },
+        GlobalSecondaryIndexes: Match.arrayWith([
+          Match.objectLike({ IndexName: "GSI1" }),
+        ]),
+      }),
+    });
+  });
+
+  it("creates the rate-limit store as throwaway: TTL, no PITR, destroyed", () => {
+    // ADR 0003 — nothing here is worth retaining or backing up.
+    template.hasResource("AWS::DynamoDB::Table", {
+      DeletionPolicy: "Delete",
+      Properties: Match.objectLike({
+        TableName: "dakotajp-ratelimit",
+        TimeToLiveSpecification: { AttributeName: "ttl", Enabled: true },
+        PointInTimeRecoverySpecification: Match.absent(),
+      }),
     });
   });
 

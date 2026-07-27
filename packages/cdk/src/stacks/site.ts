@@ -7,7 +7,10 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Nextjs } from "cdk-nextjs-standalone";
-import { DEFAULT_TABLE_NAME } from "@dakotajp/core";
+import {
+  DEFAULT_TABLE_NAME,
+  DEFAULT_RATE_LIMIT_TABLE_NAME,
+} from "@dakotajp/core";
 import { NodeLambda } from "../constructs/node-lambda";
 import { packageRoot } from "../package-root";
 
@@ -43,7 +46,17 @@ export class DakotajpSiteStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      // Lets rate-limit window items self-expire.
+    });
+
+    // Rate-limit windows, kept off the content table (ADR 0003). Everything
+    // here is throwaway: no PITR to bill for backing up 120-second junk, and
+    // DESTROY because there is nothing to preserve.
+    const rateLimitTable = new dynamodb.Table(this, "RateLimitTable", {
+      tableName: DEFAULT_RATE_LIMIT_TABLE_NAME,
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
       timeToLiveAttribute: "ttl",
     });
 
@@ -107,6 +120,7 @@ export class DakotajpSiteStack extends cdk.Stack {
       nextjsPath: packageRoot("@dakotajp/web"), // packages/web (the Next.js app)
       environment: {
         TABLE_NAME: table.tableName,
+        RATE_LIMIT_TABLE_NAME: rateLimitTable.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,
         BEDROCK_MODEL_ID,
       },
@@ -119,6 +133,9 @@ export class DakotajpSiteStack extends cdk.Stack {
     });
 
     table.grantReadWriteData(site.serverFunction.lambdaFunction);
+    // Only the server function rate-limits; the summarizer has no public entry
+    // point, so it gets no grant here.
+    rateLimitTable.grantReadWriteData(site.serverFunction.lambdaFunction);
     site.serverFunction.lambdaFunction.addToRolePolicy(bedrockInvokePolicy());
     summaryQueue.grantSendMessages(site.serverFunction.lambdaFunction);
 

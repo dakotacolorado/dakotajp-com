@@ -2,7 +2,6 @@ jest.mock("./client");
 
 import { ddb, TABLE_NAME } from "./client";
 import {
-  STATS_PK,
   getPostStats,
   getAllPostStats,
   getReaderPostLikes,
@@ -35,7 +34,7 @@ describe("getPostStats", () => {
       name: "GetCommand",
       input: {
         TableName: TABLE_NAME,
-        Key: { pk: STATS_PK, sk: "a-post" },
+        Key: { pk: "POSTSTATS", sk: "a-post" },
         ConsistentRead: true,
       },
     });
@@ -64,7 +63,7 @@ describe("getAllPostStats", () => {
     expect(stats.get("one")).toEqual({ likes: 2, commentCount: 1 });
     expect(stats.get("two")).toEqual({ likes: 0, commentCount: 0 });
     expect(command(0).input).toMatchObject({
-      ExpressionAttributeValues: { ":pk": STATS_PK },
+      ExpressionAttributeValues: { ":pk": "POSTSTATS" },
     });
   });
 
@@ -129,7 +128,7 @@ describe("togglePostLike", () => {
       ConditionExpression: "attribute_not_exists(pk)",
     });
     expect(counter.Update).toMatchObject({
-      Key: { pk: STATS_PK, sk: "a-post" },
+      Key: { pk: "POSTSTATS", sk: "a-post" },
       UpdateExpression: "ADD #likes :d", // atomic, never read-modify-write
       ExpressionAttributeValues: { ":d": 1 },
     });
@@ -181,7 +180,10 @@ describe("toggleCommentLike", () => {
     await expect(
       toggleCommentLike(null, "a-post", "c1", createdAt),
     ).resolves.toEqual({ liked: false, likes: 2 });
-    expect(command(0).input).toMatchObject({ Key: commentKey });
+    expect(command(0).input).toMatchObject({
+      Key: commentKey,
+      ConsistentRead: true,
+    });
     expect(send).toHaveBeenCalledTimes(1);
   });
 
@@ -196,8 +198,8 @@ describe("toggleCommentLike", () => {
     send
       .mockResolvedValueOnce({}) // dedupe probe
       .mockResolvedValueOnce({}) // transaction
-      .mockResolvedValueOnce({ Item: { likes: 1 } }) // consistent re-read
-      .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }); // readerLiked
+      .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }) // readerLiked
+      .mockResolvedValueOnce({ Item: { likes: 1 } }); // consistent re-read
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),
@@ -218,9 +220,9 @@ describe("toggleCommentLike", () => {
   it("unlikes: removes the marker and subtracts one from the comment", async () => {
     send
       .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }) // already liked
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ Item: { likes: 0 } })
-      .mockResolvedValueOnce({});
+      .mockResolvedValueOnce({}) // transaction
+      .mockResolvedValueOnce({}) // readerLiked — gone now
+      .mockResolvedValueOnce({ Item: { likes: 0 } }); // consistent re-read
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),
@@ -237,8 +239,8 @@ describe("toggleCommentLike", () => {
     send
       .mockResolvedValueOnce({}) // dedupe probe
       .mockRejectedValueOnce(new Error("TransactionCanceledException"))
-      .mockResolvedValueOnce({}) // the comment is gone
-      .mockResolvedValueOnce({}); // so nothing is liked
+      .mockResolvedValueOnce({}) // nothing was ever marked liked
+      .mockResolvedValueOnce({}); // and the comment is gone
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),

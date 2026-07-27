@@ -1,13 +1,12 @@
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import { PK, Page } from "@dakotajp/core";
+import { Page } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
+import { PAGE, currentKey } from "./keys";
 import { commitVersion } from "./versioning";
-
-//   pk = "PAGE"   sk = "<key>"   metadata + inline body
 
 export async function getPage(key: string): Promise<Page | null> {
   const res = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk: PK.page, sk: key } }),
+    new GetCommand({ TableName: TABLE_NAME, Key: currentKey(PAGE, key) }),
   );
   if (!res.Item) return null;
   return Page.from({
@@ -23,7 +22,7 @@ export async function savePage(
   key: string,
   input: { title: string; body: string },
 ): Promise<Page> {
-  await commitVersion(PK.page, key, {
+  await commitVersion(PAGE, key, {
     title: input.title,
     body: input.body,
   });

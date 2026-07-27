@@ -3,15 +3,12 @@ import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { getSecureParam, SSM_PARAMS } from "@/lib/db/ssm";
-import {
-  getReaderPostLikes as storeReaderPostLikes,
-  togglePostLike as storeTogglePostLike,
-  toggleCommentLike as storeToggleCommentLike,
-} from "@dakotajp/storage";
 
 /**
  * Reader identity for anonymous likes: a signed httpOnly cookie holding a
- * random id, which the storage layer receives as a parameter (ADR 0001).
+ * random id. Callers pass the result into `storage`, which never reads
+ * request-scoped state itself (ADR 0001).
+ *
  * Clearing cookies mints a fresh identity — accepted for anonymous likes.
  */
 
@@ -37,8 +34,12 @@ export async function getReaderId(): Promise<string | null> {
   }
 }
 
-/** Read the reader's ID, minting + setting the cookie on first like. */
-async function ensureReaderId(): Promise<string | null> {
+/**
+ * The reader's ID, minting and setting the cookie if they don't have one yet.
+ * Use on a write (a like); use `getReaderId` on a read, so merely viewing a
+ * page never sets a cookie.
+ */
+export async function ensureReaderId(): Promise<string | null> {
   const existing = await getReaderId();
   if (existing) return existing;
   const key = await secretKey();
@@ -57,22 +58,4 @@ async function ensureReaderId(): Promise<string | null> {
     maxAge: READER_TTL_SECONDS,
   });
   return rid;
-}
-
-export async function getReaderPostLikes(slug: string): Promise<Set<string>> {
-  return storeReaderPostLikes(await getReaderId(), slug);
-}
-
-export async function togglePostLike(
-  slug: string,
-): Promise<{ liked: boolean; likes: number }> {
-  return storeTogglePostLike(await ensureReaderId(), slug);
-}
-
-export async function toggleCommentLike(
-  slug: string,
-  commentId: string,
-  createdAt: string,
-): Promise<{ liked: boolean; likes: number }> {
-  return storeToggleCommentLike(await ensureReaderId(), slug, commentId, createdAt);
 }

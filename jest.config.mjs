@@ -77,6 +77,11 @@ export default async () => ({
     "packages/{core,storage,lambda}/src/**/*.ts",
     "!**/*.test.ts",
     "!**/__mocks__/**",
+    // Pure re-export manifests: no statement or branch a test could get wrong,
+    // and istanbul counts each `export { x } from` as an uncalled function. The
+    // surface they declare is asserted directly in `storage/src/index.test.ts`,
+    // which is a stronger check than line coverage would be.
+    "!packages/storage/src/index.ts",
   ],
   coverageDirectory: "coverage",
   coverageReporters: ["text-summary", "text", "lcov"],

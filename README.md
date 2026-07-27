@@ -15,8 +15,11 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
-Uses AWS credentials for the `us-east-1` account (default profile) to read the
-`dakotajp-site` table.
+Uses AWS credentials for the `us-east-1` account (default profile). Content
+lives in the `dakotajp-site` table; rate-limit windows go to `dakotajp-ratelimit`
+([ADR 0003](./adr/ADR_0003_ephemeral-state-off-the-content-table.md)). With
+`TABLE_NAME` / `RATE_LIMIT_TABLE_NAME` unset, local dev reads and writes the
+real ones.
 
 ## Build & check
 

@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPost, listComments, getPostStats } from "@dakotajp/storage";
-import { getReaderPostLikes } from "@/lib/server/likes";
+import {
+  getPost,
+  listComments,
+  getPostStats,
+  getReaderPostLikes,
+} from "@dakotajp/storage";
+import { getReaderId } from "@/lib/server/reader";
 import { isAdmin } from "@/lib/server/auth";
 import { formatDate } from "@/lib/util/date";
 import {
@@ -52,7 +57,7 @@ export default async function PostPage({
 
   const [stats, readerLikes, comments] = await Promise.all([
     getPostStats(slug),
-    getReaderPostLikes(slug),
+    getReaderId().then((rid) => getReaderPostLikes(rid, slug)),
     listComments(slug),
   ]);
   const sort = normalizeCommentSort(rawSort);

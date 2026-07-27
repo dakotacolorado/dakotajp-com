@@ -1,6 +1,6 @@
 jest.mock("./client");
 
-import { ddb, TABLE_NAME } from "./client";
+import { ddb, TABLE_NAME, RATE_LIMIT_TABLE_NAME } from "./client";
 import { tryAcquire } from "./ratelimit";
 
 const send = ddb.send as unknown as jest.Mock;
@@ -23,7 +23,7 @@ describe("tryAcquire", () => {
     await expect(tryAcquire("bedrock")).resolves.toBe(true);
 
     expect(send.mock.calls[0][0].input).toMatchObject({
-      TableName: TABLE_NAME,
+      TableName: RATE_LIMIT_TABLE_NAME,
       Key: { pk: "RATELIMIT#bedrock", sk: String(second) },
       UpdateExpression: "ADD #c :one SET #ttl = if_not_exists(#ttl, :ttl)",
       ConditionExpression: "attribute_not_exists(#c) OR #c < :limit",
@@ -33,6 +33,13 @@ describe("tryAcquire", () => {
         ":ttl": second + 120,
       },
     });
+  });
+
+  it("never touches the content table", async () => {
+    // ADR 0003: attacker-driven ephemeral writes stay off the content table.
+    send.mockResolvedValueOnce({});
+    await tryAcquire("bedrock");
+    expect(send.mock.calls[0][0].input.TableName).not.toBe(TABLE_NAME);
   });
 
   it("puts each second in its own item, so the window is fixed not sliding", async () => {

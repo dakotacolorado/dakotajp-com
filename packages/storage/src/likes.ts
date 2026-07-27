@@ -4,19 +4,20 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, TABLE_NAME } from "./client";
+import {
+  POST_LIKE_TARGET,
+  STATS_PARTITION,
+  commentKey,
+  commentLikeTarget,
+  likeKey,
+  likePartition,
+  likePrefix,
+  statsKey,
+  targetFromLikeSortKey,
+} from "./keys";
 
-//   Dedupe:     pk = "LIKE#<rid>"   sk = "<slug>#post" | "<slug>#c#<id>"
-//   Post stats: pk = "POSTSTATS"    sk = "<slug>"   { likes, commentCount }
-//   Comment:    the COMMENT item carries its own `likes` attribute
-//
-// `rid` is resolved by the caller (ADR 0001). Post likes live off the POST item
-// so a like landing mid-save isn't clobbered by commitVersion's read-then-write.
-
-export const STATS_PK = "POSTSTATS";
-const likePk = (rid: string) => `LIKE#${rid}`;
-const POST_SUFFIX = "post";
-const commentSuffix = (commentId: string) => `c#${commentId}`;
-const dedupeSk = (slug: string, suffix: string) => `${slug}#${suffix}`;
+// A comment's own `likes` attribute lives on the COMMENT item; a post's lives
+// on its POSTSTATS item. `rid` is resolved by the caller (ADR 0001).
 
 export interface Stats {
   likes: number;
@@ -29,7 +30,7 @@ export async function getPostStats(slug: string): Promise<Stats> {
   const res = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
-      Key: { pk: STATS_PK, sk: slug },
+      Key: statsKey(slug),
       ConsistentRead: true,
     }),
   );
@@ -45,7 +46,7 @@ export async function getAllPostStats(): Promise<Map<string, Stats>> {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": STATS_PK },
+      ExpressionAttributeValues: { ":pk": STATS_PARTITION },
     }),
   );
   const map = new Map<string, Stats>();
@@ -69,95 +70,139 @@ export async function getReaderPostLikes(
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
       ExpressionAttributeValues: {
-        ":pk": likePk(rid),
-        ":prefix": `${slug}#`,
+        ":pk": likePartition(rid),
+        ":prefix": likePrefix(slug),
       },
     }),
   );
-  const prefixLen = `${slug}#`.length;
   const set = new Set<string>();
-  for (const it of res.Items ?? []) set.add((it.sk as string).slice(prefixLen));
+  for (const it of res.Items ?? []) {
+    set.add(targetFromLikeSortKey(it.sk as string, slug));
+  }
   return set;
 }
 
 async function readerLiked(
   rid: string,
   slug: string,
-  suffix: string,
+  target: string,
 ): Promise<boolean> {
   const res = await ddb.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: likePk(rid), sk: dedupeSk(slug, suffix) },
-    }),
+    new GetCommand({ TableName: TABLE_NAME, Key: likeKey(rid, slug, target) }),
   );
   return Boolean(res.Item);
 }
 
+/**
+ * The `likes` attribute on whichever item holds this target's counter, read
+ * consistently so a toggle never reports the count it just superseded.
+ */
+async function readLikeCount(counterKey: {
+  pk: string;
+  sk: string;
+}): Promise<number> {
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: counterKey,
+      ConsistentRead: true,
+    }),
+  );
+  return (res.Item?.likes as number) ?? 0;
+}
+
 // --- toggles ---------------------------------------------------------------
 
-export async function togglePostLike(
+/** What a toggle acts on: the dedupe suffix plus the item holding the count. */
+interface LikeTarget {
+  /** Identifies what was liked, as the suffix of the dedupe `sk`. */
+  suffix: string;
+  /** The item whose `likes` attribute this toggle moves. */
+  counterKey: { pk: string; sk: string };
+  /**
+   * Whether the counter item must already exist. A comment counts on its own
+   * item, so a deleted comment must fail the toggle; a post's POSTSTATS item
+   * is created by the first like, so it must not.
+   */
+  requireCounter: boolean;
+}
+
+/**
+ * Flip one reader's like on one target.
+ *
+ * The dedupe marker and the counter move in a single transaction, so a like is
+ * never counted twice and the count can't drift from the markers. A losing
+ * race throws, which is why the real state is re-read before returning rather
+ * than inferred from what we intended to write.
+ */
+async function toggleLike(
   rid: string | null,
   slug: string,
+  target: LikeTarget,
 ): Promise<{ liked: boolean; likes: number }> {
-  if (!rid) return { liked: false, likes: (await getPostStats(slug)).likes };
+  if (!rid) {
+    return { liked: false, likes: await readLikeCount(target.counterKey) };
+  }
 
-  const dedupe = { pk: likePk(rid), sk: dedupeSk(slug, POST_SUFFIX) };
+  const dedupe = likeKey(rid, slug, target.suffix);
   const already = Boolean(
     (await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: dedupe })))
       .Item,
   );
 
+  const counter = {
+    TableName: TABLE_NAME,
+    Key: target.counterKey,
+    UpdateExpression: "ADD #likes :d",
+    ...(target.requireCounter
+      ? { ConditionExpression: "attribute_exists(pk)" }
+      : {}),
+    ExpressionAttributeNames: { "#likes": "likes" },
+    ExpressionAttributeValues: { ":d": already ? -1 : 1 },
+  };
+
   try {
     await ddb.send(
       new TransactWriteCommand({
-        TransactItems: already
-          ? [
-              {
+        TransactItems: [
+          already
+            ? {
                 Delete: {
                   TableName: TABLE_NAME,
                   Key: dedupe,
                   ConditionExpression: "attribute_exists(pk)",
                 },
-              },
-              {
-                Update: {
-                  TableName: TABLE_NAME,
-                  Key: { pk: STATS_PK, sk: slug },
-                  UpdateExpression: "ADD #likes :d",
-                  ExpressionAttributeNames: { "#likes": "likes" },
-                  ExpressionAttributeValues: { ":d": -1 },
-                },
-              },
-            ]
-          : [
-              {
+              }
+            : {
                 Put: {
                   TableName: TABLE_NAME,
                   Item: dedupe,
                   ConditionExpression: "attribute_not_exists(pk)",
                 },
               },
-              {
-                Update: {
-                  TableName: TABLE_NAME,
-                  Key: { pk: STATS_PK, sk: slug },
-                  UpdateExpression: "ADD #likes :d",
-                  ExpressionAttributeNames: { "#likes": "likes" },
-                  ExpressionAttributeValues: { ":d": 1 },
-                },
-              },
-            ],
+          { Update: counter },
+        ],
       }),
     );
   } catch {
-    // A concurrent toggle raced us — fall through and report actual state.
+    // Raced, or the target is gone — report actual state below.
   }
 
   return {
-    liked: await readerLiked(rid, slug, POST_SUFFIX),
-    likes: (await getPostStats(slug)).likes,
+    liked: await readerLiked(rid, slug, target.suffix),
+    likes: await readLikeCount(target.counterKey),
   };
+}
+
+export async function togglePostLike(
+  rid: string | null,
+  slug: string,
+): Promise<{ liked: boolean; likes: number }> {
+  return toggleLike(rid, slug, {
+    suffix: POST_LIKE_TARGET,
+    counterKey: statsKey(slug),
+    requireCounter: false,
+  });
 }
 
 export async function toggleCommentLike(
@@ -166,79 +211,9 @@ export async function toggleCommentLike(
   commentId: string,
   createdAt: string,
 ): Promise<{ liked: boolean; likes: number }> {
-  const commentKey = { pk: `COMMENT#${slug}`, sk: `${createdAt}#${commentId}` };
-
-  if (!rid) {
-    const c = await ddb.send(
-      new GetCommand({ TableName: TABLE_NAME, Key: commentKey }),
-    );
-    return { liked: false, likes: (c.Item?.likes as number) ?? 0 };
-  }
-
-  const suffix = commentSuffix(commentId);
-  const dedupe = { pk: likePk(rid), sk: dedupeSk(slug, suffix) };
-  const already = Boolean(
-    (await ddb.send(new GetCommand({ TableName: TABLE_NAME, Key: dedupe })))
-      .Item,
-  );
-
-  try {
-    await ddb.send(
-      new TransactWriteCommand({
-        TransactItems: already
-          ? [
-              {
-                Delete: {
-                  TableName: TABLE_NAME,
-                  Key: dedupe,
-                  ConditionExpression: "attribute_exists(pk)",
-                },
-              },
-              {
-                Update: {
-                  TableName: TABLE_NAME,
-                  Key: commentKey,
-                  UpdateExpression: "ADD #likes :d",
-                  ConditionExpression: "attribute_exists(pk)",
-                  ExpressionAttributeNames: { "#likes": "likes" },
-                  ExpressionAttributeValues: { ":d": -1 },
-                },
-              },
-            ]
-          : [
-              {
-                Put: {
-                  TableName: TABLE_NAME,
-                  Item: dedupe,
-                  ConditionExpression: "attribute_not_exists(pk)",
-                },
-              },
-              {
-                Update: {
-                  TableName: TABLE_NAME,
-                  Key: commentKey,
-                  UpdateExpression: "ADD #likes :d",
-                  ConditionExpression: "attribute_exists(pk)",
-                  ExpressionAttributeNames: { "#likes": "likes" },
-                  ExpressionAttributeValues: { ":d": 1 },
-                },
-              },
-            ],
-      }),
-    );
-  } catch {
-    // Raced, or the comment was deleted — report actual state below.
-  }
-
-  const c = await ddb.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: commentKey,
-      ConsistentRead: true,
-    }),
-  );
-  return {
-    liked: await readerLiked(rid, slug, suffix),
-    likes: (c.Item?.likes as number) ?? 0,
-  };
+  return toggleLike(rid, slug, {
+    suffix: commentLikeTarget(commentId),
+    counterKey: commentKey(slug, createdAt, commentId),
+    requireCounter: true,
+  });
 }
