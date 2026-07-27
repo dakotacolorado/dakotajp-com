@@ -1,7 +1,8 @@
 name: CI
 
-# Runs on every PR into main: lint, build the app, and synth the CDK stack.
-# No AWS credentials are used here — nothing is deployed.
+# Runs on every PR into main. No AWS credentials are used here — nothing is
+# deployed. The correctness gate lives in `checks.yml` so this and `deploy.yml`
+# cannot disagree about what passing means.
 on:
   pull_request:
     branches: [main]
@@ -10,6 +11,12 @@ permissions:
   contents: read
 
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  # PR-only. A push to main gets this coverage from `cdk deploy`, which runs the
+  # OpenNext build and synthesises the stack itself — so repeating it there would
+  # only build the app twice.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -22,19 +29,6 @@ jobs:
 
       - name: Install (workspaces)
         run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      # Every package, including the ones no build or test would otherwise
-      # typecheck (storage, lambda — esbuild and SWC strip types without checking).
-      - name: Typecheck
-        run: npm run typecheck
-
-      # With coverage, so the thresholds in jest.config.mjs actually gate a PR
-      # rather than only reporting when someone remembers to ask for them.
-      - name: Test
-        run: npm run test:coverage
 
       - name: Build web
         run: npm run build

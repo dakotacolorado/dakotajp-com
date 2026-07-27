@@ -1,0 +1,48 @@
+name: Checks
+
+# The correctness gate, defined once. Both CI (pull requests) and Deploy
+# (pushes to main) call this, so a PR passing is evidence the deploy will.
+#
+# WHY THIS IS A SEPARATE FILE: these steps used to be copy-pasted into both
+# workflows, which let them drift in two ways at once — in what they ran, and
+# in the environment they ran in. `deploy.yml` set AWS_REGION at the job level
+# for its OIDC step; that changed which side of an `??` executed at import time
+# in the summarizer, dropped its branch coverage below the gate, and failed
+# three deploys that CI had passed on identical code.
+#
+# A reusable workflow runs as its own job. A caller's `env:` cannot reach it,
+# so the environment is identical no matter who calls it. Keep it that way:
+# anything a deploy needs and a PR doesn't belongs in the calling workflow.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Every package, including the ones no build or test would otherwise
+      # typecheck (storage, lambda — esbuild and SWC strip types without checking).
+      - name: Typecheck
+        run: npm run typecheck
+
+      # With coverage, so the thresholds in jest.config.mjs actually gate a
+      # merge rather than only reporting when someone remembers to ask for them.
+      - name: Test
+        run: npm run test:coverage
