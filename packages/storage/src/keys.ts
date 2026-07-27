@@ -1,9 +1,9 @@
 import type { EntityType } from "@dakotajp/core";
 
 /**
- * Every key family in the table, in one place. See ADR 0002.
+ * Every key family in the content table, in one place. See ADR 0002.
  *
- * This module is the contract between every reader and writer of the table. It
+ * This module is the contract between every reader and writer of that table. It
  * is not exported from the package barrel: nothing outside `storage` builds a
  * key, so nothing outside `storage` needs this file.
  *
@@ -18,8 +18,10 @@ import type { EntityType } from "@dakotajp/core";
  * post counters     POSTSTATS               <slug>                  { likes, commentCount }
  * like dedupe       LIKE#<rid>              <slug>#post             this reader liked the post
  *                                           <slug>#c#<commentId>    this reader liked that comment
- * rate-limit window RATELIMIT#<key>         <unix second>           { count, ttl }, self-expiring
  * ```
+ *
+ * Rate-limit windows are the one thing that is not here: they live in their own
+ * table with their own key, in `ratelimit.ts` (ADR 0003).
  *
  * Two shapes recur below. A `*Key` builds a whole `{ pk, sk }` — one addressed
  * item. A `*Partition` builds the `pk` alone — the argument to a Query that
@@ -146,11 +148,3 @@ export const likeKey = (rid: string, slug: string, target: string) => ({
 /** A dedupe `sk` back to its target suffix (`post` or `c#<id>`). */
 export const targetFromLikeSortKey = (sk: string, slug: string): string =>
   sk.slice(likePrefix(slug).length);
-
-// --- rate limiting ---------------------------------------------------------
-
-/** One fixed window. Items self-expire via the table's `ttl` attribute. */
-export const rateLimitKey = (key: string, second: number) => ({
-  pk: `RATELIMIT#${key}`,
-  sk: String(second),
-});

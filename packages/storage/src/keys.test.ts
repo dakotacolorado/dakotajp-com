@@ -18,7 +18,6 @@ import {
   likePartition,
   likePrefix,
   paddedVersion,
-  rateLimitKey,
   slugFromCommentPartition,
   statsKey,
   targetFromLikeSortKey,
@@ -169,15 +168,6 @@ describe("like dedupe", () => {
   });
 });
 
-describe("rate limiting", () => {
-  it("gives each window second its own item", () => {
-    expect(rateLimitKey("bedrock-chat", 1767225600)).toEqual({
-      pk: "RATELIMIT#bedrock-chat",
-      sk: "1767225600",
-    });
-  });
-});
-
 describe("key families", () => {
   it("does not collide across families", () => {
     // One table, so a duplicated prefix silently lands on another family's
@@ -191,7 +181,6 @@ describe("key families", () => {
       commentPartition("x"),
       STATS_PARTITION,
       likePartition("x"),
-      rateLimitKey("x", 0).pk,
     ];
     expect(new Set(partitions).size).toBe(partitions.length);
   });

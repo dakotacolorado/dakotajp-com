@@ -180,7 +180,10 @@ describe("toggleCommentLike", () => {
     await expect(
       toggleCommentLike(null, "a-post", "c1", createdAt),
     ).resolves.toEqual({ liked: false, likes: 2 });
-    expect(command(0).input).toMatchObject({ Key: commentKey });
+    expect(command(0).input).toMatchObject({
+      Key: commentKey,
+      ConsistentRead: true,
+    });
     expect(send).toHaveBeenCalledTimes(1);
   });
 
@@ -195,8 +198,8 @@ describe("toggleCommentLike", () => {
     send
       .mockResolvedValueOnce({}) // dedupe probe
       .mockResolvedValueOnce({}) // transaction
-      .mockResolvedValueOnce({ Item: { likes: 1 } }) // consistent re-read
-      .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }); // readerLiked
+      .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }) // readerLiked
+      .mockResolvedValueOnce({ Item: { likes: 1 } }); // consistent re-read
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),
@@ -217,9 +220,9 @@ describe("toggleCommentLike", () => {
   it("unlikes: removes the marker and subtracts one from the comment", async () => {
     send
       .mockResolvedValueOnce({ Item: { pk: "LIKE#rid-1" } }) // already liked
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ Item: { likes: 0 } })
-      .mockResolvedValueOnce({});
+      .mockResolvedValueOnce({}) // transaction
+      .mockResolvedValueOnce({}) // readerLiked — gone now
+      .mockResolvedValueOnce({ Item: { likes: 0 } }); // consistent re-read
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),
@@ -236,8 +239,8 @@ describe("toggleCommentLike", () => {
     send
       .mockResolvedValueOnce({}) // dedupe probe
       .mockRejectedValueOnce(new Error("TransactionCanceledException"))
-      .mockResolvedValueOnce({}) // the comment is gone
-      .mockResolvedValueOnce({}); // so nothing is liked
+      .mockResolvedValueOnce({}) // nothing was ever marked liked
+      .mockResolvedValueOnce({}); // and the comment is gone
 
     await expect(
       toggleCommentLike("rid-1", "a-post", "c1", createdAt),

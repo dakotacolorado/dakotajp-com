@@ -17,8 +17,10 @@ import {
   rollbackToVersion,
   addComment,
   deleteComment,
+  togglePostLike,
+  toggleCommentLike,
 } from "@dakotajp/storage";
-import { togglePostLike, toggleCommentLike } from "@/lib/server/likes";
+import { ensureReaderId } from "@/lib/server/reader";
 import { enqueueSummary } from "@/lib/services/summary-queue";
 import { slugify } from "@/lib/util/slug";
 
@@ -226,7 +228,7 @@ export async function deleteCommentAction(
 export async function togglePostLikeAction(
   slug: string,
 ): Promise<{ liked: boolean; likes: number }> {
-  const result = await togglePostLike(slug);
+  const result = await togglePostLike(await ensureReaderId(), slug);
   // Counts feed the sortable lists, so refresh those too.
   revalidatePath("/");
   revalidatePath("/blog");
@@ -239,7 +241,12 @@ export async function toggleCommentLikeAction(
   commentId: string,
   createdAt: string,
 ): Promise<{ liked: boolean; likes: number }> {
-  const result = await toggleCommentLike(slug, commentId, createdAt);
+  const result = await toggleCommentLike(
+    await ensureReaderId(),
+    slug,
+    commentId,
+    createdAt,
+  );
   revalidatePath(`/blog/${slug}`);
   return result;
 }

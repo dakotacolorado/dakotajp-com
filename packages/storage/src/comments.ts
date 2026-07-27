@@ -2,12 +2,12 @@ import {
   QueryCommand,
   DeleteCommand,
   UpdateCommand,
-  BatchWriteCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import { Comment } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
+import { deletePartition } from "./partition";
 import {
   COMMENT_FEED,
   commentFeedAttributes,
@@ -194,24 +194,5 @@ export async function deleteComment(
 
 /** Delete every comment on a post. */
 export async function deleteComments(slug: string): Promise<void> {
-  const res = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": commentPartition(slug) },
-      ProjectionExpression: "pk, sk",
-    }),
-  );
-  const items = res.Items ?? [];
-  for (let i = 0; i < items.length; i += 25) {
-    await ddb.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: items.slice(i, i + 25).map((it) => ({
-            DeleteRequest: { Key: { pk: it.pk, sk: it.sk } },
-          })),
-        },
-      }),
-    );
-  }
+  await deletePartition(commentPartition(slug));
 }

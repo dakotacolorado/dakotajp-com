@@ -123,18 +123,6 @@ describe("commitVersion", () => {
     expect(current.excerpt).toBe("");
   });
 
-  it("merges extraCurrent onto the current item only", async () => {
-    send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
-
-    await commitVersion("PAGE", "about", { title: "T", body: "B" }, {
-      extraCurrent: { pinned: true },
-    });
-
-    const [current, snapshot] = transactItems();
-    expect(current.pinned).toBe(true);
-    expect(snapshot.pinned).toBeUndefined();
-  });
-
   it("records restoredFrom on the snapshot when given one", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 

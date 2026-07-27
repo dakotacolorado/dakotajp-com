@@ -2,7 +2,6 @@ import {
   GetCommand,
   QueryCommand,
   TransactWriteCommand,
-  BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
   DERIVED_FIELDS,
@@ -11,6 +10,7 @@ import {
   type VersionSummary,
 } from "@dakotajp/core";
 import { ddb, TABLE_NAME } from "./client";
+import { deletePartition } from "./partition";
 import {
   POST,
   bodyKey,
@@ -21,9 +21,8 @@ import {
 
 /**
  * Bump the version, writing the current item(s) and the snapshot in one
- * transaction. `content` holds the versioned fields; `extraCurrent` holds
- * fields that live only on the current item; `splitBody` stores the body
- * separately. Returns the new version number.
+ * transaction. `content` holds the versioned fields; `splitBody` stores the
+ * body separately. Returns the new version number.
  */
 export async function commitVersion(
   type: EntityType,
@@ -31,7 +30,6 @@ export async function commitVersion(
   content: Record<string, unknown>,
   opts?: {
     restoredFrom?: number;
-    extraCurrent?: Record<string, unknown>;
     splitBody?: boolean;
   },
 ): Promise<number> {
@@ -45,7 +43,6 @@ export async function commitVersion(
   const currentItem: Record<string, unknown> = {
     ...key,
     ...content,
-    ...(opts?.extraCurrent ?? {}),
     version: nextVersion,
     createdAt,
     updatedAt: savedAt,
@@ -147,25 +144,5 @@ export async function rollbackToVersion(
 }
 
 export async function deleteVersionHistory(type: EntityType, id: string) {
-  const res = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": versionPartition(type, id) },
-      ProjectionExpression: "pk, sk",
-    }),
-  );
-  const items = res.Items ?? [];
-  for (let i = 0; i < items.length; i += 25) {
-    const chunk = items.slice(i, i + 25);
-    await ddb.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: chunk.map((it) => ({
-            DeleteRequest: { Key: { pk: it.pk, sk: it.sk } },
-          })),
-        },
-      }),
-    );
-  }
+  await deletePartition(versionPartition(type, id));
 }

@@ -1,16 +1,23 @@
 import * as storage from "./index";
 
 /**
- * The storage boundary, enforced. `client.ts` and `keys.ts` are deliberately
- * not re-exported: the DynamoDB client, the table name, and every key shape are
- * this package's internals, so every path to the table runs through a
- * repository. A barrel that leaks them gives callers a way around the
+ * The storage boundary, enforced. `client.ts`, `keys.ts` and `partition.ts` are
+ * deliberately not re-exported: the DynamoDB client, the table names, and every
+ * key shape are this package's internals, so every path to a table runs through
+ * a repository. A barrel that leaks them gives callers a way around the
  * repositories, and this test is what stops that.
  */
 describe("the storage barrel", () => {
-  it("keeps the DynamoDB client and table name private", () => {
+  it("keeps the DynamoDB client and table names private", () => {
     expect(storage).not.toHaveProperty("ddb");
     expect(storage).not.toHaveProperty("TABLE_NAME");
+    expect(storage).not.toHaveProperty("RATE_LIMIT_TABLE_NAME");
+  });
+
+  it("keeps item-mapping and partition helpers private", () => {
+    // Internal plumbing, not a repository operation.
+    expect(storage).not.toHaveProperty("itemToMeta");
+    expect(storage).not.toHaveProperty("deletePartition");
   });
 
   it("keeps every key builder private", () => {
@@ -24,7 +31,6 @@ describe("the storage barrel", () => {
     expect(Object.keys(storage).sort()).toEqual(
       [
         // posts
-        "itemToMeta",
         "listPosts",
         "getPostMeta",
         "getPost",

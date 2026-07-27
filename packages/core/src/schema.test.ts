@@ -1,8 +1,13 @@
-import { DEFAULT_TABLE_NAME, DERIVED_FIELDS } from "./schema";
+import {
+  DEFAULT_TABLE_NAME,
+  DEFAULT_RATE_LIMIT_TABLE_NAME,
+  DERIVED_FIELDS,
+} from "./schema";
 
 describe("core schema", () => {
-  it("declares the table name", () => {
+  it("declares the table names", () => {
     expect(DEFAULT_TABLE_NAME).toBe("dakotajp-site");
+    expect(DEFAULT_RATE_LIMIT_TABLE_NAME).toBe("dakotajp-ratelimit");
   });
 
   it("does not resolve the table name from the environment", () => {
