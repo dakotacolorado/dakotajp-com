@@ -1,0 +1,75 @@
+name: Claude Issue Agent
+
+# Hands a labelled issue to Claude Code and lets it open a PR, unattended.
+#
+# Labelling an issue `claude` is the only trigger, on purpose. Conversational
+# `@claude` mentions are already handled by claude.yml; wiring both to the same
+# comment launched two agents on one issue, racing to solve it.
+#
+# Passing an explicit prompt puts the action in automation mode: it starts work
+# immediately rather than waiting to be addressed.
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write # push the working branch
+  pull-requests: write # open the PR
+  issues: write # report back on the issue
+  id-token: write # the action authenticates with this
+
+# One agent per issue. Removing and re-adding the label while a run is in
+# flight would otherwise produce two branches solving the same thing.
+concurrency:
+  group: claude-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    if: github.event.label.name == 'claude'
+    runs-on: ubuntu-latest
+    # A runaway agent burns tokens and Actions minutes silently. Cap both the
+    # wall clock and the turn count.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # The agent runs the same gates CI does, so it needs the same toolchain
+      # already installed — otherwise its first act is a five-minute npm ci.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Implement GitHub issue #${{ github.event.issue.number }} in this repository.
+
+            Read the issue first, then the ADRs in adr/ — they are the source of
+            truth for architecture decisions, not the code comments.
+
+            Work on a branch named claude/issue-${{ github.event.issue.number }}.
+            Later automation keys off the claude/ prefix, so do not rename it.
+
+            Before opening the PR, run and pass all three gates that CI enforces:
+              npm run lint
+              npm run typecheck
+              npm run test:coverage
+
+            Coverage thresholds in jest.config.mjs are enforced and will block the
+            PR. New code needs tests; do not lower a threshold to make a build go
+            green.
+
+            Open a pull request against main. In the PR body, link the issue with
+            "Closes #${{ github.event.issue.number }}" and describe what you changed
+            and what you deliberately left out.
+
+            If the issue is too ambiguous to implement without guessing at product
+            decisions, do not open a speculative PR — comment on the issue with the
+            specific question instead.
+          claude_args: "--max-turns 60"
