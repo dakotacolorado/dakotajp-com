@@ -11,8 +11,8 @@ export default function ChatPage() {
     <section>
       <h1 className="mb-2 font-serif text-3xl tracking-tight">Ask AI</h1>
       <p className="mb-8 text-stone-600 dark:text-stone-400">
-        A small assistant that knows about this site. Ask it about Dakota, the
-        resume, or any of the writing.
+        A small assistant that knows about this site. Ask it about Dakota or
+        any of the writing.
       </p>
       <ChatBox />
     </section>

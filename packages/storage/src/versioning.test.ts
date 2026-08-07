@@ -64,7 +64,7 @@ describe("commitVersion", () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-06-01T00:00:00.000Z"));
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
-    const next = await commitVersion("PAGE", "resume", { title: "R", body: "" });
+    const next = await commitVersion("PAGE", "notes", { title: "N", body: "" });
 
     expect(next).toBe(1);
     expect(transactItems()[0]).toMatchObject({

@@ -10,5 +10,5 @@ export const SITE = {
   /** Public source for this site. */
   repo: "https://github.com/dakotacolorado/dakotajp-com",
 
-  description: "Writing, work, and résumé.",
+  description: "Writing and work.",
 } as const;
