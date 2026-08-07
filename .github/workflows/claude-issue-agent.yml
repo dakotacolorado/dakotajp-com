@@ -10,7 +10,11 @@ name: Claude Issue Agent
 # and means a PR appearing in the list is already known-good.
 #
 # Gates, in order:
-#   1. build  -- lint, typecheck, tests+coverage. Deterministic.
+#   1. build  -- lint, typecheck, tests+coverage, next build. Deterministic.
+#                The `next build` is the cheap stand-in for a deployed preview:
+#                not "does the site look right", but at least "does it compile".
+#                Nothing else in CI runs it -- only `cdk deploy` does, after a
+#                merge -- so without it a broken build reaches main.
 #   2. adr    -- does the change hold to the ADRs in adr/.
 #   3. intent -- does it actually solve the issue, without scope creep.
 #
@@ -80,10 +84,11 @@ jobs:
             Do NOT open a pull request. Later steps run the checks and open the
             PR only if they pass. Opening one yourself skips the gates.
 
-            Before you finish, run all three of these and get them green:
+            Before you finish, run all four of these and get them green:
               npm run lint
               npm run typecheck
               npm run test:coverage
+              npm run build
 
             Coverage thresholds in jest.config.mjs are enforced. New code needs
             tests. Do not delete or skip a failing test, lower a threshold, or
@@ -125,7 +130,8 @@ jobs:
           set -o pipefail
           npm run lint 2>&1 | tee -a build.log &&
           npm run typecheck 2>&1 | tee -a build.log &&
-          npm run test:coverage 2>&1 | tee -a build.log
+          npm run test:coverage 2>&1 | tee -a build.log &&
+          npm run build 2>&1 | tee -a build.log
 
       # A failed gate gets one repair attempt inside this same run. Bounded on
       # purpose: an unbounded retry loop is an unbounded bill.
@@ -154,7 +160,8 @@ jobs:
           rm -f build.log
           npm run lint 2>&1 | tee -a build.log &&
           npm run typecheck 2>&1 | tee -a build.log &&
-          npm run test:coverage 2>&1 | tee -a build.log
+          npm run test:coverage 2>&1 | tee -a build.log &&
+          npm run build 2>&1 | tee -a build.log
 
       - name: Record the build verdict
         id: buildverdict
@@ -166,9 +173,9 @@ jobs:
             {
               echo "### 🔨 Build bot — passed"
               echo
-              echo "\`npm run lint\`, \`npm run typecheck\` and \`npm run test:coverage\` all green"
-              echo "on \`$(git rev-parse --short HEAD)\`, run independently of the agent that"
-              echo "wrote the change."
+              echo "\`lint\`, \`typecheck\`, \`test:coverage\` and \`build\` all green on"
+              echo "\`$(git rev-parse --short HEAD)\`, run independently of the agent that"
+              echo "wrote the change. The site compiles."
               [ "${{ steps.build.outcome }}" = "failure" ] && echo && echo "_Took one repair pass to get here._"
             } > verdict-build.md
           else
@@ -298,7 +305,7 @@ jobs:
             echo
             echo "| Gate | Result |"
             echo "| --- | --- |"
-            echo "| Build (lint, typecheck, coverage) | ✅ |"
+            echo "| Build (lint, typecheck, coverage, next build) | ✅ |"
             echo "| ADR compliance | ✅ |"
             echo "| Issue fidelity | ✅ |"
             echo
