@@ -75,12 +75,6 @@ export default async function AdminDashboard() {
           >
             Edit <span className="font-medium">About</span> (landing page)
           </Link>
-          <Link
-            href="/admin/pages/resume"
-            className="rounded-md border border-gray-200 px-4 py-3 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
-          >
-            Edit <span className="font-medium">Resume</span>
-          </Link>
         </div>
       </section>
 

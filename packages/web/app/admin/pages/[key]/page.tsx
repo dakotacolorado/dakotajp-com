@@ -7,7 +7,7 @@ import { VersionHistory } from "@/components/admin/VersionHistory";
 
 export const dynamic = "force-dynamic";
 
-const EDITABLE = new Set(["about", "resume"]);
+const EDITABLE = new Set(["about"]);
 
 export default async function EditPage({
   params,
