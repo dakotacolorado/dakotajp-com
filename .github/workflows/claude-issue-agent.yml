@@ -175,6 +175,15 @@ jobs:
           set -o pipefail
           git pull --ff-only origin "${{ steps.pushed.outputs.branch }}"
           rm -f build.log
+
+          # `next build` generates .next/types/validator.ts with an import per
+          # route. It survives from the first build gate, so if the repair
+          # deleted a route, typecheck here fails on a stale reference to a file
+          # the fix correctly removed -- and the agent gets blamed for a break
+          # that is only an artifact of running the gate twice. Hit this by hand
+          # removing the /resume page in #23.
+          rm -rf packages/web/.next packages/web/.open-next
+
           npm run lint 2>&1 | tee -a build.log &&
           npm run typecheck 2>&1 | tee -a build.log &&
           npm run test:coverage 2>&1 | tee -a build.log &&
