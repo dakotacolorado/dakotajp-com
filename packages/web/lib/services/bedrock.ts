@@ -7,8 +7,8 @@ import { getPage, listPosts } from "@dakotajp/storage";
 import { SEED_PAGES } from "@/lib/config/seed";
 
 /**
- * Bedrock-backed site assistant, grounded on the About and Resume pages in full
- * plus each published post's blurb.
+ * Bedrock-backed site assistant, grounded on the About page in full plus
+ * each published post's blurb.
  */
 
 const region = process.env.AWS_REGION ?? "us-east-1";
@@ -23,14 +23,12 @@ export interface ChatMessage {
 }
 
 async function buildSystemPrompt(): Promise<string> {
-  const [about, resume, posts] = await Promise.all([
+  const [about, posts] = await Promise.all([
     getPage("about"),
-    getPage("resume"),
     listPosts(), // published only
   ]);
 
   const aboutText = (about ?? SEED_PAGES.about).body;
-  const resumeText = (resume ?? SEED_PAGES.resume).body;
   const postLines =
     posts
       .map((p) => `- "${p.title}" (/blog/${p.slug}): ${p.blurb}`)
@@ -39,15 +37,12 @@ async function buildSystemPrompt(): Promise<string> {
   return [
     "You are a helpful assistant on Dakota James Parker's personal website.",
     "You are NOT Dakota — always refer to Dakota in the third person (\"Dakota is…\", \"he…\") and never answer in the first person on his behalf.",
-    "The About and Resume below are written by Dakota in the first person; translate them to the third person when you answer.",
+    "The About below is written by Dakota in the first person; translate it to the third person when you answer.",
     "Use ONLY the information below. If something isn't covered, say you don't know rather than guessing.",
     "Keep answers concise. When a blog post is relevant, name it and reference its /blog/<slug> path.",
     "",
     "## About",
     aboutText,
-    "",
-    "## Resume",
-    resumeText,
     "",
     "## Blog posts",
     postLines,

@@ -78,7 +78,7 @@ export async function logoutAction(): Promise<void> {
   redirect("/");
 }
 
-// --- pages (About / Resume) ------------------------------------------------
+// --- pages (About) -----------------------------------------------------
 
 export async function savePageAction(
   _prev: State,

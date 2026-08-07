@@ -1,4 +1,4 @@
-/** The "Page" noun — a singleton markdown document (About, Resume). */
+/** The "Page" noun — a singleton markdown document (About). */
 
 export interface PageProps {
   key: string;
