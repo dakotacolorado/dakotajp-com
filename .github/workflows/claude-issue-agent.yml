@@ -1,21 +1,35 @@
 name: Claude Issue Agent
 
-# Hands a labelled issue to Claude Code and lets it open a PR, unattended.
+# Label an issue `claude` and it comes back as a pull request that has already
+# passed its checks.
 #
-# Labelling an issue `claude` is the only trigger, on purpose. Conversational
-# `@claude` mentions are already handled by claude.yml; wiring both to the same
-# comment launched two agents on one issue, racing to solve it.
+# Everything runs inside this one job, before the PR exists. That ordering is
+# the point: a PR opened with GITHUB_TOKEN does not fire `pull_request` events,
+# so anything wired to react to the PR (ci.yml, claude-code-review.yml) would
+# never run on it. Checking first and opening second sidesteps that entirely --
+# and means a PR appearing in the list is already known-good.
 #
-# Passing an explicit prompt puts the action in automation mode: it starts work
-# immediately rather than waiting to be addressed.
+# Gates, in order:
+#   1. build  -- lint, typecheck, tests+coverage, next build. Deterministic.
+#                The `next build` is the cheap stand-in for a deployed preview:
+#                not "does the site look right", but at least "does it compile".
+#                Nothing else in CI runs it -- only `cdk deploy` does, after a
+#                merge -- so without it a broken build reaches main.
+#   2. adr    -- does the change hold to the ADRs in adr/.
+#   3. intent -- does it actually solve the issue, without scope creep.
+#
+# Each writes a verdict file. All three must pass or no PR is opened and the
+# issue gets a comment saying why. The verdicts are then posted to the PR as
+# comments, so the reasoning is visible next to the diff rather than buried in
+# an Actions log.
 on:
   issues:
     types: [labeled]
 
 permissions:
   contents: write # push the working branch
-  pull-requests: write # open the PR
-  issues: write # report back on the issue
+  pull-requests: write # open the PR and comment on it
+  issues: write # report back when a gate blocks
   id-token: write # the action authenticates with this
 
 # One agent per issue. Removing and re-adding the label while a run is in
@@ -28,14 +42,24 @@ jobs:
   agent:
     if: github.event.label.name == 'claude'
     runs-on: ubuntu-latest
-    # A runaway agent burns tokens and Actions minutes silently. Cap both the
-    # wall clock and the turn count.
-    timeout-minutes: 45
+    # A runaway agent burns tokens and Actions minutes silently. Cap the wall
+    # clock here and the turn count on each step.
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+      # What we ask for. The action may append a timestamp, so the branch
+      # actually used is resolved at runtime -- see the "Did the agent push"
+      # step and use steps.pushed.outputs.branch downstream.
+      PREFERRED_BRANCH: claude/issue-${{ github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The gates diff against main, so the agent needs main's history.
+          fetch-depth: 0
 
       # The agent runs the same gates CI does, so it needs the same toolchain
-      # already installed — otherwise its first act is a five-minute npm ci.
+      # already installed -- otherwise its first act is a five-minute npm ci.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -44,32 +68,287 @@ jobs:
       - name: Install (workspaces)
         run: npm ci
 
-      - uses: anthropics/claude-code-action@v1
+      # --- 1. Implement -------------------------------------------------
+
+      - name: Implement the issue
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --max-turns 60
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
           prompt: |
-            Implement GitHub issue #${{ github.event.issue.number }} in this repository.
+            Implement GitHub issue #${{ env.ISSUE }} in this repository.
 
-            Read the issue first, then the ADRs in adr/ — they are the source of
+            Read the issue first, then the ADRs in adr/ -- they are the source of
             truth for architecture decisions, not the code comments.
 
-            Work on a branch named claude/issue-${{ github.event.issue.number }}.
-            Later automation keys off the claude/ prefix, so do not rename it.
+            Work on a branch named ${{ env.PREFERRED_BRANCH }}. Commit your work and push
+            that branch.
 
-            Before opening the PR, run and pass all three gates that CI enforces:
+            Do NOT open a pull request. Later steps run the checks and open the
+            PR only if they pass. Opening one yourself skips the gates.
+
+            Before you finish, run all four of these and get them green:
               npm run lint
               npm run typecheck
               npm run test:coverage
+              npm run build
 
-            Coverage thresholds in jest.config.mjs are enforced and will block the
-            PR. New code needs tests; do not lower a threshold to make a build go
-            green.
+            Coverage thresholds in jest.config.mjs are enforced. New code needs
+            tests. Do not delete or skip a failing test, lower a threshold, or
+            weaken a type to make them pass -- a later step re-runs these
+            independently, so that would only fail further down.
 
-            Open a pull request against main. In the PR body, link the issue with
-            "Closes #${{ github.event.issue.number }}" and describe what you changed
-            and what you deliberately left out.
-
-            If the issue is too ambiguous to implement without guessing at product
-            decisions, do not open a speculative PR — comment on the issue with the
+            If the issue is too ambiguous to implement without guessing at
+            product decisions, push nothing and comment on the issue with the
             specific question instead.
-          claude_args: "--max-turns 60"
+
+      # Nothing to check if the agent bailed out. This is a legitimate outcome
+      # (it was told to push nothing when an issue is ambiguous), so the run
+      # ends clean rather than red.
+      - name: Did the agent push anything?
+        id: pushed
+        run: |
+          git fetch origin "+refs/heads/claude/*:refs/remotes/origin/claude/*" --prune 2>/dev/null || true
+
+          # Don't assume the branch name. The action appends its own timestamp
+          # (claude/issue-23-20260807-2303), so matching the bare name asked for
+          # in the prompt finds nothing. Take the most recent branch for this
+          # issue, whichever convention produced it.
+          branch=$(git for-each-ref --sort=-committerdate --format='%(refname:short)' \
+            "refs/remotes/origin/$PREFERRED_BRANCH" \
+            "refs/remotes/origin/$PREFERRED_BRANCH-*" | head -1 | sed 's|^origin/||')
+
+          if [ -n "$branch" ] && [ -n "$(git log --oneline "origin/main..origin/$branch")" ]; then
+            echo "Working from $branch"
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "No branch or no commits on it -- the agent chose not to implement."
+            echo "yes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the agent's branch
+        if: steps.pushed.outputs.yes == 'true'
+        run: git checkout "${{ steps.pushed.outputs.branch }}"
+
+      # --- 2. Build gate ------------------------------------------------
+      # Re-run independently rather than trusting the agent's own report. This
+      # is the step whose verdict is worth something.
+
+      - name: Build gate
+        id: build
+        if: steps.pushed.outputs.yes == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee -a build.log &&
+          npm run typecheck 2>&1 | tee -a build.log &&
+          npm run test:coverage 2>&1 | tee -a build.log &&
+          npm run build 2>&1 | tee -a build.log
+
+      # A failed gate gets one repair attempt inside this same run. Bounded on
+      # purpose: an unbounded retry loop is an unbounded bill.
+      - name: Repair a failing build
+        if: steps.pushed.outputs.yes == 'true' && steps.build.outcome == 'failure'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --max-turns 40
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
+          prompt: |
+            The checks failed on branch ${{ steps.pushed.outputs.branch }}. The output is in
+            build.log at the repository root. Read it, fix the cause, and
+            commit and push to the same branch.
+
+            Fix the actual defect. Do not delete or skip a failing test, lower a
+            coverage threshold, or weaken a type to make the build pass. If the
+            only way forward is one of those, push nothing and say so.
+
+      - name: Build gate (after repair)
+        id: rebuild
+        if: steps.pushed.outputs.yes == 'true' && steps.build.outcome == 'failure'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          git pull --ff-only origin "${{ steps.pushed.outputs.branch }}"
+          rm -f build.log
+          npm run lint 2>&1 | tee -a build.log &&
+          npm run typecheck 2>&1 | tee -a build.log &&
+          npm run test:coverage 2>&1 | tee -a build.log &&
+          npm run build 2>&1 | tee -a build.log
+
+      - name: Record the build verdict
+        id: buildverdict
+        if: steps.pushed.outputs.yes == 'true'
+        run: |
+          if [ "${{ steps.build.outcome }}" = "success" ] ||
+             [ "${{ steps.rebuild.outcome }}" = "success" ]; then
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### 🔨 Build bot — passed"
+              echo
+              echo "\`lint\`, \`typecheck\`, \`test:coverage\` and \`build\` all green on"
+              echo "\`$(git rev-parse --short HEAD)\`, run independently of the agent that"
+              echo "wrote the change. The site compiles."
+              [ "${{ steps.build.outcome }}" = "failure" ] && echo && echo "_Took one repair pass to get here._"
+            } > verdict-build.md
+          else
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### 🔨 Build bot — failed"
+              echo
+              echo "Still failing after a repair attempt. Last 50 lines:"
+              echo
+              echo '```'
+              tail -50 build.log
+              echo '```'
+            } > verdict-build.md
+          fi
+
+      # --- 3. Review gates ----------------------------------------------
+      # Both read the diff and write a verdict file whose first line is
+      # machine-readable. Prose below it becomes the PR comment.
+
+      - name: ADR compliance gate
+        if: steps.pushed.outputs.yes == 'true' && steps.buildverdict.outputs.pass == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --max-turns 30
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
+          prompt: |
+            Review the change on this branch against the architecture decision
+            records in adr/. The diff is:
+
+              git diff origin/main...HEAD
+
+            Read every ADR in adr/ first. Judge only whether the change is
+            consistent with them -- package boundaries, storage layout, where
+            ephemeral state lives, and any other decision recorded there. This
+            is not a general code review; style and taste are out of scope.
+
+            Write your findings to verdict-adr.md at the repository root. The
+            first line must be exactly one of:
+              VERDICT: PASS
+              VERDICT: FAIL
+            Then a blank line, then a short markdown explanation. Name the
+            specific ADR for anything you flag. FAIL only for an actual conflict
+            with a recorded decision -- not for something you would have done
+            differently. If it is clean, say briefly which ADRs you checked and
+            why it holds.
+
+      - name: Issue-fidelity gate
+        if: steps.pushed.outputs.yes == 'true' && steps.buildverdict.outputs.pass == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --max-turns 30
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
+          prompt: |
+            Read GitHub issue #${{ env.ISSUE }}:
+
+              gh issue view ${{ env.ISSUE }}
+
+            Then read the change written to address it:
+
+              git diff origin/main...HEAD
+
+            Judge two things. Does the change actually do what the issue asked?
+            And does it do anything the issue did not ask for -- unrelated
+            refactors, drive-by renames, scope the author invented?
+
+            Write your findings to verdict-intent.md at the repository root. The
+            first line must be exactly one of:
+              VERDICT: PASS
+              VERDICT: FAIL
+            Then a blank line, then a short markdown explanation. FAIL if the
+            issue is not actually solved, or if there is substantial unrequested
+            scope. Note small extras without failing them.
+
+      - name: Collect review verdicts
+        id: reviews
+        if: steps.pushed.outputs.yes == 'true' && steps.buildverdict.outputs.pass == 'true'
+        run: |
+          pass=true
+          for gate in adr intent; do
+            file="verdict-$gate.md"
+            # A missing file means the agent never wrote one. Treat that as a
+            # failure: an unanswered gate is not a passed gate.
+            if [ ! -f "$file" ]; then
+              echo "$gate produced no verdict"
+              pass=false
+              continue
+            fi
+            head -1 "$file" | grep -q "VERDICT: PASS" || pass=false
+          done
+          echo "pass=$pass" >> "$GITHUB_OUTPUT"
+
+      # --- 4. Gate, then open the PR ------------------------------------
+
+      - name: Report a blocked run on the issue
+        if: >
+          steps.pushed.outputs.yes == 'true' &&
+          (steps.buildverdict.outputs.pass != 'true' || steps.reviews.outputs.pass != 'true')
+        run: |
+          {
+            echo "The agent finished work on \`${{ steps.pushed.outputs.branch }}\` but it did not pass its checks,"
+            echo "so no pull request was opened."
+            echo
+            for f in verdict-build.md verdict-adr.md verdict-intent.md; do
+              [ -f "$f" ] && { cat "$f"; echo; }
+            done
+            echo "The branch is pushed if you want to pick it up by hand."
+            echo
+            echo "[Full run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > blocked.md
+          gh issue comment "$ISSUE" --body-file blocked.md
+
+      - name: Fail the run when a gate blocked it
+        if: >
+          steps.pushed.outputs.yes == 'true' &&
+          (steps.buildverdict.outputs.pass != 'true' || steps.reviews.outputs.pass != 'true')
+        run: exit 1
+
+      - name: Open the pull request
+        id: pr
+        if: steps.pushed.outputs.yes == 'true' && steps.reviews.outputs.pass == 'true'
+        run: |
+          {
+            echo "Closes #$ISSUE"
+            echo
+            echo "Opened by the issue agent after its checks passed. Each gate's"
+            echo "reasoning is posted as a comment below."
+            echo
+            echo "| Gate | Result |"
+            echo "| --- | --- |"
+            echo "| Build (lint, typecheck, coverage, next build) | ✅ |"
+            echo "| ADR compliance | ✅ |"
+            echo "| Issue fidelity | ✅ |"
+            echo
+            echo "[Full run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > pr-body.md
+          gh pr create \
+            --base main --head "${{ steps.pushed.outputs.branch }}" \
+            --title "$(gh issue view "$ISSUE" --json title --jq .title)" \
+            --body-file pr-body.md
+          echo "number=$(gh pr list --head "${{ steps.pushed.outputs.branch }}" --state open --json number --jq '.[0].number')" >> "$GITHUB_OUTPUT"
+
+      - name: Post the gate results to the PR
+        if: steps.pr.outputs.number != ''
+        run: |
+          gh pr comment "${{ steps.pr.outputs.number }}" --body-file verdict-build.md
+
+          # Strip the machine-readable first line; it is for the gate, not the reader.
+          for gate in adr intent; do
+            case "$gate" in
+              adr) title="### 📐 ADR agent — architecture guidelines upheld" ;;
+              intent) title="### 🎯 Intent agent — change matches the issue" ;;
+            esac
+            { echo "$title"; echo; tail -n +3 "verdict-$gate.md"; } > "comment-$gate.md"
+            gh pr comment "${{ steps.pr.outputs.number }}" --body-file "comment-$gate.md"
+          done

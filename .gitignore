@@ -35,3 +35,11 @@ npm-debug.log*
 
 # Claude Code local config (machine-specific)
 .claude/
+
+# Scratch files the issue agent writes at the repo root while it runs. The
+# repair step commits from this tree, so these need to be invisible to it.
+build.log
+verdict-*.md
+comment-*.md
+pr-body.md
+blocked.md

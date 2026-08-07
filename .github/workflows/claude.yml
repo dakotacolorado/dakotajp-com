@@ -30,11 +30,29 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Without these Claude has no node_modules, so `npm run lint` and friends
+      # fail before they start. It could install them itself, but that is five
+      # minutes of its turn budget spent on something the runner caches.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Bash is not in the action's default allow-list. Interactively that
+          # is a prompt; in CI there is nobody to answer it, so every command is
+          # refused -- on issue #23 Claude edited nine files, pushed them, and
+          # could not run a single check to see if they compiled.
+          claude_args: >-
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
