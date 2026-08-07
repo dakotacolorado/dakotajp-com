@@ -48,7 +48,10 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       ISSUE: ${{ github.event.issue.number }}
-      BRANCH: claude/issue-${{ github.event.issue.number }}
+      # What we ask for. The action may append a timestamp, so the branch
+      # actually used is resolved at runtime -- see the "Did the agent push"
+      # step and use steps.pushed.outputs.branch downstream.
+      PREFERRED_BRANCH: claude/issue-${{ github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,14 +74,16 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 60"
+          claude_args: >-
+            --max-turns 60
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
           prompt: |
             Implement GitHub issue #${{ env.ISSUE }} in this repository.
 
             Read the issue first, then the ADRs in adr/ -- they are the source of
             truth for architecture decisions, not the code comments.
 
-            Work on a branch named ${{ env.BRANCH }}. Commit your work and push
+            Work on a branch named ${{ env.PREFERRED_BRANCH }}. Commit your work and push
             that branch.
 
             Do NOT open a pull request. Later steps run the checks and open the
@@ -105,10 +110,20 @@ jobs:
       - name: Did the agent push anything?
         id: pushed
         run: |
-          git fetch origin "$BRANCH" 2>/dev/null || true
-          if git rev-parse --verify "origin/$BRANCH" >/dev/null 2>&1 &&
-             [ -n "$(git log --oneline "origin/main..origin/$BRANCH")" ]; then
+          git fetch origin "+refs/heads/claude/*:refs/remotes/origin/claude/*" --prune 2>/dev/null || true
+
+          # Don't assume the branch name. The action appends its own timestamp
+          # (claude/issue-23-20260807-2303), so matching the bare name asked for
+          # in the prompt finds nothing. Take the most recent branch for this
+          # issue, whichever convention produced it.
+          branch=$(git for-each-ref --sort=-committerdate --format='%(refname:short)' \
+            "refs/remotes/origin/$PREFERRED_BRANCH" \
+            "refs/remotes/origin/$PREFERRED_BRANCH-*" | head -1 | sed 's|^origin/||')
+
+          if [ -n "$branch" ] && [ -n "$(git log --oneline "origin/main..origin/$branch")" ]; then
+            echo "Working from $branch"
             echo "yes=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
           else
             echo "No branch or no commits on it -- the agent chose not to implement."
             echo "yes=false" >> "$GITHUB_OUTPUT"
@@ -116,7 +131,7 @@ jobs:
 
       - name: Check out the agent's branch
         if: steps.pushed.outputs.yes == 'true'
-        run: git checkout "$BRANCH"
+        run: git checkout "${{ steps.pushed.outputs.branch }}"
 
       # --- 2. Build gate ------------------------------------------------
       # Re-run independently rather than trusting the agent's own report. This
@@ -140,9 +155,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 40"
+          claude_args: >-
+            --max-turns 40
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
           prompt: |
-            The checks failed on branch ${{ env.BRANCH }}. The output is in
+            The checks failed on branch ${{ steps.pushed.outputs.branch }}. The output is in
             build.log at the repository root. Read it, fix the cause, and
             commit and push to the same branch.
 
@@ -156,7 +173,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          git pull --ff-only origin "$BRANCH"
+          git pull --ff-only origin "${{ steps.pushed.outputs.branch }}"
           rm -f build.log
           npm run lint 2>&1 | tee -a build.log &&
           npm run typecheck 2>&1 | tee -a build.log &&
@@ -200,7 +217,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 30"
+          claude_args: >-
+            --max-turns 30
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
           prompt: |
             Review the change on this branch against the architecture decision
             records in adr/. The diff is:
@@ -227,7 +246,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 30"
+          claude_args: >-
+            --max-turns 30
+            --allowed-tools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite"
           prompt: |
             Read GitHub issue #${{ env.ISSUE }}:
 
@@ -275,7 +296,7 @@ jobs:
           (steps.buildverdict.outputs.pass != 'true' || steps.reviews.outputs.pass != 'true')
         run: |
           {
-            echo "The agent finished work on \`$BRANCH\` but it did not pass its checks,"
+            echo "The agent finished work on \`${{ steps.pushed.outputs.branch }}\` but it did not pass its checks,"
             echo "so no pull request was opened."
             echo
             for f in verdict-build.md verdict-adr.md verdict-intent.md; do
@@ -312,10 +333,10 @@ jobs:
             echo "[Full run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           } > pr-body.md
           gh pr create \
-            --base main --head "$BRANCH" \
+            --base main --head "${{ steps.pushed.outputs.branch }}" \
             --title "$(gh issue view "$ISSUE" --json title --jq .title)" \
             --body-file pr-body.md
-          echo "number=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" >> "$GITHUB_OUTPUT"
+          echo "number=$(gh pr list --head "${{ steps.pushed.outputs.branch }}" --state open --json number --jq '.[0].number')" >> "$GITHUB_OUTPUT"
 
       - name: Post the gate results to the PR
         if: steps.pr.outputs.number != ''
