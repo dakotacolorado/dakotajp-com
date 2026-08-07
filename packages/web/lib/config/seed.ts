@@ -5,7 +5,7 @@ export const SEED_PAGES: Record<string, { title: string; body: string }> = {
     body: `# Hi, I'm Dakota 👋
 
 I'm a software engineer. This site is my little corner of the internet — an
-about page, my resume, and a blog.
+about page and a blog.
 
 > This content is editable. Log in at **/admin** and click **Edit** to change it.
 
@@ -16,29 +16,7 @@ about page, my resume, and a blog.
 
 ## Elsewhere
 - [GitHub](https://github.com/dakotacolorado)
-`,
-  },
-  resume: {
-    title: "Resume",
-    body: `# Resume
-
-## Experience
-
-### Software Engineer
-*Company · 20XX – Present*
-
-- Did impactful things.
-- Shipped features used by many.
-
-## Education
-
-### B.S. in Something
-*University · 20XX*
-
-## Skills
-TypeScript · React · Next.js · AWS · Node.js
-
-_Log in at **/admin** to edit this page._
+- [LinkedIn](https://www.linkedin.com/in/dakotaparker/)
 `,
   },
 };

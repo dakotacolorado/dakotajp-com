@@ -40,10 +40,10 @@ describe("getPage", () => {
 
   it("defaults the version for items written before versioning landed", async () => {
     send.mockResolvedValueOnce({
-      Item: { title: "Resume", body: "", updatedAt: "2026-01-01T00:00:00.000Z" },
+      Item: { title: "Notes", body: "", updatedAt: "2026-01-01T00:00:00.000Z" },
     });
 
-    await expect(getPage("resume")).resolves.toMatchObject({ version: 1 });
+    await expect(getPage("notes")).resolves.toMatchObject({ version: 1 });
   });
 
   it("returns null for a page that doesn't exist", async () => {
