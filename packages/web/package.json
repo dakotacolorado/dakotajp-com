@@ -10,13 +10,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dakotajp/core": "0.1.0",
-    "@dakotajp/storage": "0.1.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1094.0",
     "@aws-sdk/client-dynamodb": "^3.1094.0",
+    "@aws-sdk/client-s3": "^3.1106.0",
     "@aws-sdk/client-sqs": "^3.1094.0",
     "@aws-sdk/client-ssm": "^3.1094.0",
     "@aws-sdk/lib-dynamodb": "^3.1094.0",
+    "@aws-sdk/s3-request-presigner": "^3.1106.0",
+    "@dakotajp/core": "0.1.0",
+    "@dakotajp/storage": "0.1.0",
     "jose": "^6.2.4",
     "next": "16.2.11",
     "react": "19.2.4",

@@ -5,11 +5,15 @@ import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Nextjs } from "cdk-nextjs-standalone";
 import {
   DEFAULT_TABLE_NAME,
   DEFAULT_RATE_LIMIT_TABLE_NAME,
+  MEDIA_PREFIX,
 } from "@dakotajp/core";
 import { NodeLambda } from "../constructs/node-lambda";
 import { packageRoot } from "../package-root";
@@ -97,6 +101,29 @@ export class DakotajpSiteStack extends cdk.Stack {
     table.grantReadWriteData(summarizer);
     summarizer.addToRolePolicy(bedrockInvokePolicy());
 
+    // --- Media: private uploads bucket, reachable only through CloudFront ---
+    // No bucketName. An auto-generated one keeps this out of the physical-name
+    // inventory (nothing outside the stack references it -- the Lambda gets it
+    // by env var) and sidesteps S3's global namespace.
+    const mediaBucket = new s3.Bucket(this, "MediaBucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      // Uploads are referenced from post bodies. Losing the bucket would leave
+      // every published post with broken images, so it outlives the stack.
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      cors: [
+        {
+          // The browser PUTs straight to S3 with a presigned URL, so the
+          // upload is a cross-origin request from the site to this bucket.
+          allowedMethods: [s3.HttpMethods.PUT],
+          allowedOrigins: [`https://${DOMAIN_NAME}`, `https://${WWW_DOMAIN}`],
+          allowedHeaders: ["*"],
+          maxAge: 3000,
+        },
+      ],
+    });
+
     // --- DNS + TLS ---
     const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
       this,
@@ -122,6 +149,7 @@ export class DakotajpSiteStack extends cdk.Stack {
         TABLE_NAME: table.tableName,
         RATE_LIMIT_TABLE_NAME: rateLimitTable.tableName,
         SUMMARY_QUEUE_URL: summaryQueue.queueUrl,
+        MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         BEDROCK_MODEL_ID,
       },
       domainProps: {
@@ -138,6 +166,27 @@ export class DakotajpSiteStack extends cdk.Stack {
     rateLimitTable.grantReadWriteData(site.serverFunction.lambdaFunction);
     site.serverFunction.lambdaFunction.addToRolePolicy(bedrockInvokePolicy());
     summaryQueue.grantSendMessages(site.serverFunction.lambdaFunction);
+
+    // Serve uploads from the site's own distribution, so images share the
+    // domain and the certificate and there is no second origin to CORS against
+    // on read. Origin Access Control is what lets the bucket stay private:
+    // CloudFront signs its origin requests, and nothing else can reach it.
+    // No leading slash, matching the behaviours cdk-nextjs already registers
+    // (`api/*`, `_next/*`) and known to route correctly in this distribution.
+    site.distribution.distribution.addBehavior(
+      `${MEDIA_PREFIX}/*`,
+      origins.S3BucketOrigin.withOriginAccessControl(mediaBucket),
+      {
+        viewerProtocolPolicy:
+          cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        // Keys carry a uuid, so an object never changes under a given URL.
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+    );
+
+    // Signing a PUT requires holding the permission it grants. Scoped to this
+    // bucket, and to writes only -- the server never reads an upload back.
+    mediaBucket.grantPut(site.serverFunction.lambdaFunction);
 
     // GOTCHA: these parameters are created out-of-band by `set-admin-password`,
     // not by this stack. A fresh deploy has no admin until that script runs.

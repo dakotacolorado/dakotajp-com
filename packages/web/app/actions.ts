@@ -21,6 +21,7 @@ import {
   toggleCommentLike,
 } from "@dakotajp/storage";
 import { ensureReaderId } from "@/lib/server/reader";
+import { createUploadTarget } from "@/lib/server/media";
 import { enqueueSummary } from "@/lib/services/summary-queue";
 import { slugify } from "@/lib/util/slug";
 
@@ -162,6 +163,29 @@ export async function deletePostAction(formData: FormData): Promise<void> {
     revalidatePath("/blog");
   }
   redirect("/admin/blog");
+}
+
+// --- media uploads (admin only) --------------------------------------------
+
+/**
+ * Hand the editor a presigned PUT so the browser can upload straight to S3.
+ *
+ * This is the whole authorisation boundary for uploads: the signed URL is the
+ * capability, so anyone who can call this can write to the bucket until it
+ * expires. Hence assertAdmin() first, before anything is signed.
+ */
+export async function createUploadUrlAction(
+  contentType: string,
+  size: number,
+): Promise<{ uploadUrl: string; publicUrl: string } | { error: string }> {
+  await assertAdmin();
+  try {
+    return await createUploadTarget(contentType, size);
+  } catch (err) {
+    // Reaches a fetch() in the browser, so return it rather than throwing --
+    // a thrown server action surfaces as an opaque digest in production.
+    return { error: err instanceof Error ? err.message : "Upload failed" };
+  }
 }
 
 // --- versioning (rollback, admin only) -------------------------------------
