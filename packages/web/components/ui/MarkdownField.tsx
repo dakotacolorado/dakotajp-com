@@ -15,7 +15,13 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "preview", label: "Preview" },
 ];
 
-const ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
+/**
+ * Deliberately `image/*` and not the allow-list. A phone's camera roll is HEIC,
+ * which is not a type the server will sign for -- but the browser re-encodes to
+ * WebP before it ever asks. Naming specific types here makes iOS grey out the
+ * library and hides the Camera option; the real gate is server-side anyway.
+ */
+const ACCEPT = "image/*";
 
 /**
  * Markdown textarea with a live preview. GOTCHA: the textarea stays mounted in
@@ -43,26 +49,35 @@ export function MarkdownField({
   const [dragging, setDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** Last caret position the user set. null until they have touched the field. */
+  const caretRef = useRef<number | null>(null);
 
   const textareaClass =
     "w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-900";
 
   /**
-   * Splice at the caret, reading it at call time. The upload is awaited first,
-   * so a position captured earlier may be stale by now -- and if the field is
-   * not focused at all, appending beats overwriting whatever is at index 0.
+   * Splice at the last caret position the user actually put there.
+   *
+   * Reading selectionStart at call time does not work: tapping "Add image"
+   * blurs the textarea, and a field that was never focused reports 0 -- which
+   * silently inserts the image above everything already written. That is the
+   * normal path on a phone, where nobody taps into the text first. Falls back
+   * to appending, which is wrong far less often than prepending.
    */
   function insertAtCaret(snippet: string) {
-    const el = textareaRef.current;
     setValue((current) => {
-      const at = el && el.selectionStart !== null ? el.selectionStart : current.length;
+      const at = caretRef.current ?? current.length;
       const before = current.slice(0, at);
       const after = current.slice(at);
       // Images need their own block; without the breaks markdown folds the
       // image into an adjacent paragraph.
       const lead = before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
       const trail = after.startsWith("\n") ? "" : "\n";
-      return `${before}${lead}${snippet}${trail}${after}`;
+      const next = `${before}${lead}${snippet}${trail}${after}`;
+      // Leave the caret after what was just inserted, so a second image does
+      // not land on top of the first.
+      caretRef.current = before.length + lead.length + snippet.length;
+      return next;
     });
   }
 
@@ -71,6 +86,16 @@ export function MarkdownField({
     setBusy(true);
     try {
       const { blob, contentType } = await prepareImage(file);
+
+      // Reached when the browser could not decode the file, so the original
+      // type survived -- HEIC from a camera roll on a browser that cannot read
+      // it. The server would reject this anyway; say something useful instead.
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
+        setError(
+          `This device produced a ${contentType || "file"} the browser could not convert. Try saving it as JPEG first.`,
+        );
+        return;
+      }
 
       const target = await createUploadUrlAction(contentType, blob.size);
       if ("error" in target) {
@@ -160,7 +185,15 @@ export function MarkdownField({
           ref={textareaRef}
           name={name}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            caretRef.current = e.target.selectionStart;
+          }}
+          // Covers typing, tapping, and arrow keys in one event, and fires
+          // before the button click that blurs the field.
+          onSelect={(e) => {
+            caretRef.current = (e.target as HTMLTextAreaElement).selectionStart;
+          }}
           rows={rows}
           className={`${textareaClass} ${mode === "preview" ? "hidden" : ""} ${
             dragging ? "border-gray-900 dark:border-white" : ""
